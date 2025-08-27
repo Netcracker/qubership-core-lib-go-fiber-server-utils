@@ -1,15 +1,13 @@
 module github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2
 
-go 1.23.0
-
-toolchain go1.24.2
+go 1.24.2
 
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.6
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.0-20250418112911-f47fac14e727
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.0-20250324134328-455eeff1a9d3
-	github.com/netcracker/qubership-core-lib-go/v3 v3.0.0-20250418111846-e6298a4441a0
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.0
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.0.0
 	github.com/openzipkin/zipkin-go v0.4.3
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
