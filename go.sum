@@ -60,10 +60,16 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.0-20250418112911-f47fac14e727 h1:aQ7cfj75NB3byQsldmwdFzGyfFxuXYF/IMOv7IkCOJA=
 github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.0-20250418112911-f47fac14e727/go.mod h1:KX9jcMshzK07WDwq7ffanhxjeUzBH3nfeRuS7fVdclc=
+github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.1 h1:LOllo8D3MxIGkv2HwVY1Ukb/gMshi+SkgXjioNwflg4=
+github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.1/go.mod h1:YxO/vJuc1Knkpiwi+YVTBy9HVDNbRVDLlEchmpEjGRM=
 github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.0-20250324134328-455eeff1a9d3 h1:EvJBu/Ek6tQRp9v0E4UzZUc3b9qlUeIcoYUIZXA0odk=
 github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.0-20250324134328-455eeff1a9d3/go.mod h1:v/IO5VrGhkNa0diPsChl7jBL+0g2kG1y1oowvJgQg2c=
+github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.1 h1:hQ/w6ALBaoBd9QsazYOnXw8p71Tvmfay4TOW+g9LayM=
+github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.1/go.mod h1:v/IO5VrGhkNa0diPsChl7jBL+0g2kG1y1oowvJgQg2c=
 github.com/netcracker/qubership-core-lib-go/v3 v3.0.0-20250418111846-e6298a4441a0 h1:LnS1jRY/s9h7KINo5lH1Q5M6tGzEO+j9wUbjUePzB8M=
 github.com/netcracker/qubership-core-lib-go/v3 v3.0.0-20250418111846-e6298a4441a0/go.mod h1:1EKZPAtxng7sFKRm+MjnsQ4wJfe1+/zxjuhli6kIRLQ=
+github.com/netcracker/qubership-core-lib-go/v3 v3.0.1 h1:OgdKD1OY94LbMwOLZWUHHdTZns1TvGbxxTvaHZYL5Wk=
+github.com/netcracker/qubership-core-lib-go/v3 v3.0.1/go.mod h1:kCU3D5h4Gk129KqIK2O22eQ0deW3YriSRLHs2jqzBlE=
 github.com/openzipkin/zipkin-go v0.4.3 h1:9EGwpqkgnwdEIJ+Od7QVSEIH+ocmm5nPat0G7sjsSdg=
 github.com/openzipkin/zipkin-go v0.4.3/go.mod h1:M9wCJZFWCo2RiY+o1eBCEMe0Dp2S5LDHcMZmk3RmK7c=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
