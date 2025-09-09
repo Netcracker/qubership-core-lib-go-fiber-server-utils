@@ -35,7 +35,7 @@ To get `fiber-server-utils` use
  go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2@<latest released version>
 ```
 
-List of all released versions may be found [here](https://github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/-/tags)
+List of all released versions may be found [here](https://github.com/netcracker/qubership-core-lib-go-fiber-server-utils/tags)
 
 ## Usage
 
@@ -45,14 +45,14 @@ defines a source from which your application will receive properties.
 ```go
 configloader.Init(configloader.BasePropertySources()) // to use YAML and ENV property sources
 ```
-If you want to use `config-server` as property source you have to add extra dependency: [rest-utils](https://github.com/netcracker/go-rest-utils-lib/) module.
+If you want to use `config-server` as property source you have to add extra dependency: [rest-utils](https://github.com/Netcracker/qubership-core-lib-go-rest-utils) module.
 In this case configuration loading should be initialized as
 ```go
 configloader.Init(configserver.AddConfigServerPropertySource(configloader.BasePropertySources())) 
 ```
 
 More information about property sources' configuration may be found at [configloader](https://github.com/netcracker/qubership-core-lib-go/blob/main/configloader/README.md)
-and at [config-server](https://github.com/netcracker/go-rest-utils-lib/blob/main/configserver-propertysource/README.md)
+and at [config-server](https://github.com/Netcracker/qubership-core-lib-go-rest-utils/blob/main/configserver-propertysource/README.md)
 
 > **_NOTE:_**  Configuration loading should be performed as one of the first steps in bootstrap time. 
 >That is why we strongly recommend putting configloader#Init method as the first position in the main#init method (see [quick example](#quick-example)).
@@ -113,7 +113,7 @@ Method `WithHealth(url string, healthService health.HealthService)` allows addin
 * Param `path`, _string_ is a path to the future health endpoint. For example `"/health"`.
 * Param `HealthService`, service which processes and renders health information. 
 How to create _health.HealthService_, configure it, and add health indicators can be found on this page: 
-[go-actuator](https://github.com/netcracker/qubership-core-lib-go-actuator-common/blob/mainREADME.md#health-core).
+[go-actuator](https://github.com/netcracker/qubership-core-lib-go-actuator-common/blob/main/README.md#health-core).
 
 enabling health usage:  
 ```go
@@ -127,7 +127,7 @@ app := fiberserver.New()
 Method `WithApiVersion(apiVersionServices ...*apiversion.ApiVersionService)` allows adding api-version endpoint to service for checking version of api.
 * Param `apiVersionServices` allows to set service with custom implementation. If this parameter is empty, default apiVersionService will be provided.
   How to create _apiversion.ApiVersionService_ and configure it can be found on this page:
-  [go-actuator](https://github.com/netcracker/qubership-core-lib-go-actuator-common/blob/mainREADME.md#api-version).
+  [go-actuator](https://github.com/netcracker/qubership-core-lib-go-actuator-common/blob/main/README.md#api-version).
 
 enabling api-version usage:
 ```go
