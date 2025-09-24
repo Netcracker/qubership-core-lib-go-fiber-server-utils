@@ -91,7 +91,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat() {
 		return nil
 	})
 
-	listenAndWaitForPort(suite.T(), app, ":10001")
+	listenAndWaitForPort(suite.T(), app, 10001)
 	defer func() {
 		app.Shutdown()
 		time.Sleep(time.Millisecond * 100)
@@ -130,7 +130,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat_CustomLogFields() {
 		return nil
 	})
 
-	listenAndWaitForPort(suite.T(), app, ":10001")
+	listenAndWaitForPort(suite.T(), app, 10001)
 	defer func() {
 		app.Shutdown()
 		time.Sleep(time.Millisecond * 100)

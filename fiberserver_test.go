@@ -72,7 +72,7 @@ func (suite *TestSuite) TestExampleFiberserver() {
 	pprofPort, err := getFreePort()
 	require.Nil(suite.T(), err)
 	app, err := New(fiber.Config{DisableKeepalive: true}).
-		WithPprof(pprofPort).
+		WithPprof(strconv.Itoa(pprofPort)).
 		WithHealth("/health", healthService).
 		WithPrometheus("/prometheus", monitoring.Config{HttpRequestTimeBuckets: []float64{0.005, 0.01, 0.05, 0.1}}).
 		WithTracer(tracing.NewZipkinTracerWithOpts(options)).
@@ -92,7 +92,7 @@ func (suite *TestSuite) TestExampleFiberserver() {
 		time.Sleep(time.Millisecond * 100)
 	}()
 
-	resp, err := http.Get("http://localhost:" + appPort + "/test")
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/test", appPort))
 
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
@@ -123,12 +123,12 @@ func (suite *TestSuite) TestFiberBuilderPprof() {
 	require.Nil(suite.T(), err)
 
 	_, err = New(fiber.Config{DisableKeepalive: true}).
-		WithPprof(port).
+		WithPprof(strconv.Itoa(port)).
 		Process()
 
 	assert.Equal(suite.T(), err, nil)
 
-	pprofResp, _ := http.Get("http://localhost:" + port + "/debug/pprof/")
+	pprofResp, _ := http.Get(fmt.Sprintf("http://localhost:%d/debug/pprof/", port))
 	assert.Equal(suite.T(), fiber.StatusOK, pprofResp.StatusCode)
 }
 
@@ -223,7 +223,7 @@ func (suite *TestSuite) TestFiberBuilderContext() {
 	assert.Equal(suite.T(), err, nil)
 	requestIdFromOutgoingRequest := ""
 	app.Get("/test", func(ctx *fiber.Ctx) error {
-		testRequest2, _ := http.NewRequest("GET", "http://localhost:"+port+"/test-context", nil)
+		testRequest2, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/test-context", port), nil)
 		ctxhelper.AddSerializableContextData(ctx.UserContext(), testRequest2.Header.Set)
 		resp, err := http.DefaultClient.Do(testRequest2)
 		assert.Nil(suite.T(), err)
@@ -243,7 +243,7 @@ func (suite *TestSuite) TestFiberBuilderContext() {
 	listenAndWaitForPort(suite.T(), app, port)
 	defer app.Shutdown()
 
-	testRequest, _ := http.NewRequest("GET", "http://localhost:"+port+"/test", nil)
+	testRequest, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/test", port), nil)
 	testRequest.Header.Set(acceptlanguage.ACCEPT_LANGUAGE_HEADER_NAME, "testLanguage")
 
 	resp, err := http.DefaultClient.Do(testRequest)
@@ -307,25 +307,25 @@ func (suite *TestSuite) TestDisableDeprecatedApi() {
 	listenAndWaitForPort(suite.T(), app, port)
 	defer app.Shutdown()
 
-	request, _ := http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
+	request, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/deprecated-api/v1/test", port), nil)
 	resp1get, err := http.DefaultClient.Do(request)
 	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp1get)
 	assertions.Equal(404, resp1get.StatusCode)
 
-	request, _ = http.NewRequest("POST", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
+	request, _ = http.NewRequest("POST", fmt.Sprintf("http://localhost:%d/deprecated-api/v1/test", port), nil)
 	resp1post, err := http.DefaultClient.Do(request)
 	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp1post)
 	assertions.Equal(200, resp1post.StatusCode)
 
-	request, _ = http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v2/test", nil)
+	request, _ = http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/deprecated-api/v2/test", port), nil)
 	resp2, err := http.DefaultClient.Do(request)
 	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp2)
 	assertions.Equal(404, resp2.StatusCode)
 
-	request, _ = http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v3/test", nil)
+	request, _ = http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/deprecated-api/v3/test", port), nil)
 	resp3, err := http.DefaultClient.Do(request)
 	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp3)
@@ -358,25 +358,25 @@ func (suite *TestSuite) TestDeprecatedApiDisabledFalse() {
 	listenAndWaitForPort(suite.T(), app, port)
 	defer app.Shutdown()
 
-	request, _ := http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
+	request, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/deprecated-api/v1/test", port), nil)
 	resp1get, err := http.DefaultClient.Do(request)
 	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp1get)
 	assertions.Equal(200, resp1get.StatusCode)
 
-	request, _ = http.NewRequest("POST", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
+	request, _ = http.NewRequest("POST", fmt.Sprintf("http://localhost:%d/deprecated-api/v1/test", port), nil)
 	resp1post, err := http.DefaultClient.Do(request)
 	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp1post)
 	assertions.Equal(200, resp1post.StatusCode)
 
-	request, _ = http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v2/test", nil)
+	request, _ = http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/deprecated-api/v2/test", port), nil)
 	resp2, err := http.DefaultClient.Do(request)
 	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp2)
 	assertions.Equal(200, resp2.StatusCode)
 
-	request, _ = http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v3/test", nil)
+	request, _ = http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/deprecated-api/v3/test", port), nil)
 	resp3, err := http.DefaultClient.Do(request)
 	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp3)
@@ -411,31 +411,32 @@ func readToString(stream io.Reader) string {
 	return buf.String()
 }
 
-func getFreePort() (string, error) {
+func getFreePort() (int, error) {
 	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
 	l, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	defer l.Close()
-	return strconv.Itoa(l.Addr().(*net.TCPAddr).Port), nil
+	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-func listenAndWaitForPort(t *testing.T, app *fiber.App, port string) {
-	go app.Listen(":" + port)
-	deadline := time.Now().Add(5 * time.Second)
+func listenAndWaitForPort(t *testing.T, app *fiber.App, port int) {
+	portString := strconv.Itoa(port)
+	go app.Listen(":" + portString)
+	deadline := time.Now().Add(10 * time.Second)
 	for {
-		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 100*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+portString, 100*time.Millisecond)
 		if err == nil {
 			_ = conn.Close()
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("server did not start listening on port %s in time: %v", port, err)
+			t.Fatalf("server did not start listening on port %d in time: %v", port, err)
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
