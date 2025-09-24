@@ -91,8 +91,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat() {
 		return nil
 	})
 
-	go app.Listen(":10001")
-
+	listenAndWaitForPort(suite.T(), app, ":10001")
 	defer func() {
 		app.Shutdown()
 		time.Sleep(time.Millisecond * 100)
@@ -131,8 +130,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat_CustomLogFields() {
 		return nil
 	})
 
-	go app.Listen(":10001")
-
+	listenAndWaitForPort(suite.T(), app, ":10001")
 	defer func() {
 		app.Shutdown()
 		time.Sleep(time.Millisecond * 100)
@@ -143,5 +141,6 @@ func (suite *LoggerSuite) TestFiberLoggerFormat_CustomLogFields() {
 	testRequest.Header.Set(xrequestid.X_REQUEST_ID_HEADER_NAME, x_request_id_value)
 	testRequest.Header.Set(tenant.TenantHeader, tenant_id_value)
 	resp, err := http.DefaultClient.Do(testRequest)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
 }
