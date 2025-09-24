@@ -17,18 +17,18 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/apiversion"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/monitoring"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
 	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/test"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
-	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/acceptlanguage"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxhelper"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	zkmodel "github.com/openzipkin/zipkin-go/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -249,7 +249,8 @@ func (suite *TestSuite) TestFiberBuilderContext() {
 	testRequest, _ := http.NewRequest("GET", "http://localhost:"+port+"/test", nil)
 	testRequest.Header.Set(acceptlanguage.ACCEPT_LANGUAGE_HEADER_NAME, "testLanguage")
 
-	resp, _ := http.DefaultClient.Do(testRequest)
+	resp, err := http.DefaultClient.Do(testRequest)
+	assert.NoError(suite.T(), err)
 	requestIdFromResponse := resp.Header.Get(xrequestid.X_REQUEST_ID_HEADER_NAME)
 	assert.NotEmpty(suite.T(), requestIdFromResponse)
 	assert.Equal(suite.T(), requestIdFromResponse, requestIdFromOutgoingRequest)
@@ -311,22 +312,26 @@ func (suite *TestSuite) TestDisableDeprecatedApi() {
 	defer app.Shutdown()
 
 	request, _ := http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
-	resp1get, _ := http.DefaultClient.Do(request)
+	resp1get, err := http.DefaultClient.Do(request)
+	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp1get)
 	assertions.Equal(404, resp1get.StatusCode)
 
 	request, _ = http.NewRequest("POST", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
-	resp1post, _ := http.DefaultClient.Do(request)
+	resp1post, err := http.DefaultClient.Do(request)
+	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp1post)
 	assertions.Equal(200, resp1post.StatusCode)
 
 	request, _ = http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v2/test", nil)
-	resp2, _ := http.DefaultClient.Do(request)
+	resp2, err := http.DefaultClient.Do(request)
+	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp2)
 	assertions.Equal(404, resp2.StatusCode)
 
 	request, _ = http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v3/test", nil)
-	resp3, _ := http.DefaultClient.Do(request)
+	resp3, err := http.DefaultClient.Do(request)
+	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp3)
 	assertions.Equal(200, resp3.StatusCode)
 }
@@ -358,22 +363,26 @@ func (suite *TestSuite) TestDeprecatedApiDisabledFalse() {
 	defer app.Shutdown()
 
 	request, _ := http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
-	resp1get, _ := http.DefaultClient.Do(request)
+	resp1get, err := http.DefaultClient.Do(request)
+	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp1get)
 	assertions.Equal(200, resp1get.StatusCode)
 
 	request, _ = http.NewRequest("POST", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
-	resp1post, _ := http.DefaultClient.Do(request)
+	resp1post, err := http.DefaultClient.Do(request)
+	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp1post)
 	assertions.Equal(200, resp1post.StatusCode)
 
 	request, _ = http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v2/test", nil)
-	resp2, _ := http.DefaultClient.Do(request)
+	resp2, err := http.DefaultClient.Do(request)
+	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp2)
 	assertions.Equal(200, resp2.StatusCode)
 
 	request, _ = http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v3/test", nil)
-	resp3, _ := http.DefaultClient.Do(request)
+	resp3, err := http.DefaultClient.Do(request)
+	assert.NoError(suite.T(), err)
 	assertions.NotNil(resp3)
 	assertions.Equal(200, resp3.StatusCode)
 }
