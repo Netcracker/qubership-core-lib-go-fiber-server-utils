@@ -103,7 +103,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat() {
 	testRequest.Header.Set(xrequestid.X_REQUEST_ID_HEADER_NAME, x_request_id_value)
 	testRequest.Header.Set(tenant.TenantHeader, tenant_id_value)
 	resp, err := http.DefaultClient.Do(testRequest)
-
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
 }
 

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -97,7 +96,7 @@ func (suite *TestSuite) TestExampleFiberserver() {
 
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
-	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+	bodyBytes, _ := io.ReadAll(resp.Body)
 	assert.Equal(suite.T(), "I'm test handler!!!", string(bodyBytes))
 	assert.NotEqual(suite.T(), "", resp.Header.Get(xrequestid.X_REQUEST_ID_HEADER_NAME))
 
