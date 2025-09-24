@@ -83,8 +83,7 @@ func (suite *TestSuite) TestExampleFiberserver() {
 
 	appPort, err := getFreePort()
 	require.Nil(suite.T(), err)
-	go app.Listen(":" + appPort)
-
+	listenAndWaitForPort(suite.T(), app, appPort)
 	defer func() {
 		app.Shutdown()
 		time.Sleep(time.Millisecond * 100)
@@ -242,9 +241,8 @@ func (suite *TestSuite) TestFiberBuilderContext() {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 
-	go func() {
-		app.Listen(":" + port)
-	}()
+	listenAndWaitForPort(suite.T(), app, port)
+	defer app.Shutdown()
 
 	testRequest, _ := http.NewRequest("GET", "http://localhost:"+port+"/test", nil)
 	testRequest.Header.Set(acceptlanguage.ACCEPT_LANGUAGE_HEADER_NAME, "testLanguage")
@@ -308,7 +306,7 @@ func (suite *TestSuite) TestDisableDeprecatedApi() {
 
 	port, err := getFreePort()
 	require.Nil(suite.T(), err)
-	go app.Listen(":" + port)
+	listenAndWaitForPort(suite.T(), app, port)
 	defer app.Shutdown()
 
 	request, _ := http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
@@ -359,7 +357,7 @@ func (suite *TestSuite) TestDeprecatedApiDisabledFalse() {
 
 	port, err := getFreePort()
 	require.Nil(suite.T(), err)
-	go app.Listen(":" + port)
+	listenAndWaitForPort(suite.T(), app, port)
 	defer app.Shutdown()
 
 	request, _ := http.NewRequest("GET", "http://localhost:"+port+"/deprecated-api/v1/test", nil)
@@ -427,4 +425,20 @@ func getFreePort() (string, error) {
 	}
 	defer l.Close()
 	return strconv.Itoa(l.Addr().(*net.TCPAddr).Port), nil
+}
+
+func listenAndWaitForPort(t *testing.T, app *fiber.App, port string) {
+	go app.Listen(":" + port)
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 100*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("server did not start listening on port %s in time: %v", port, err)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
