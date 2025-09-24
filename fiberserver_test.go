@@ -83,15 +83,15 @@ func (suite *TestSuite) TestExampleFiberserver() {
 
 	appPort, err := getFreePort()
 	require.Nil(suite.T(), err)
+
+	app.Get("/test", func(ctx *fiber.Ctx) error {
+		return ctx.Status(fiber.StatusOK).SendString("I'm test handler!!!")
+	})
 	listenAndWaitForPort(suite.T(), app, appPort)
 	defer func() {
 		app.Shutdown()
 		time.Sleep(time.Millisecond * 100)
 	}()
-
-	app.Get("/test", func(ctx *fiber.Ctx) error {
-		return ctx.Status(fiber.StatusOK).SendString("I'm test handler!!!")
-	})
 
 	resp, err := http.Get("http://localhost:" + appPort + "/test")
 
@@ -253,7 +253,6 @@ func (suite *TestSuite) TestFiberBuilderContext() {
 	assert.NotEmpty(suite.T(), requestIdFromResponse)
 	assert.Equal(suite.T(), requestIdFromResponse, requestIdFromOutgoingRequest)
 	assert.Nil(suite.T(), err)
-	app.Shutdown()
 	time.Sleep(time.Millisecond * 100)
 }
 
