@@ -11,8 +11,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"github.com/vibrantbyte/go-antpath/antpath"
 )
 
 type TestSuite struct {
@@ -129,4 +131,68 @@ func registerHandlers(app *fiber.App) {
 	v3.Get("/inner/wildcard-plus/+", OkHandler)
 	v3.Get("/inner/wildcard-star/*", OkHandler)
 	v3.Get("/inner/extension/:name.html", OkHandler)
+}
+
+func (suite *TestSuite) TestGetDisabledEndpoints_Basic() {
+	app := fiber.New()
+
+	// Define routes
+	app.Get("/api/users/:id", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Post("/api/users/:id", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Delete("/api/items", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Get("/health", func(c *fiber.Ctx) error { return c.SendString("ok") })
+
+	// Disabled patterns simulate regex-to-path simplification:
+	disabled := &DisabledUrlPatterns{
+		urlsMap: map[string][]string{
+			"/api/users/param": {"GET", "POST"},
+			"/api/items":       {"DELETE"},
+		},
+		antPathPattern: antpath.New(),
+	}
+
+	result := getDisabledEndpoints(app, disabled)
+
+	assert.Len(suite.T(), result, 2)
+	assert.Equal(suite.T(), []string{
+		"/api/items [DELETE]",
+		"/api/users/:id [GET,POST]",
+	}, result)
+}
+
+func (suite *TestSuite) TestGetDisabledEndpoints_NoMatches() {
+	app := fiber.New()
+	app.Get("/active", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Post("/something", func(c *fiber.Ctx) error { return c.SendString("ok") })
+
+	disabled := &DisabledUrlPatterns{
+		urlsMap: map[string][]string{
+			"/notfound": {"GET"},
+		},
+		antPathPattern: antpath.New(),
+	}
+
+	result := getDisabledEndpoints(app, disabled)
+	assert.Empty(suite.T(), result)
+}
+
+func (suite *TestSuite) TestGetDisabledEndpoints_MultipleGroupsAndDupMethods() {
+	app := fiber.New()
+
+	app.Get("/v1/data/:id", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Get("/v2/data/:id", func(c *fiber.Ctx) error { return c.SendString("ok") })
+
+	disabled := &DisabledUrlPatterns{
+		urlsMap: map[string][]string{
+			"/v1/data/param": {"GET"},
+			"/v2/data/param": {"GET"},
+		},
+		antPathPattern: antpath.New(),
+	}
+
+	result := getDisabledEndpoints(app, disabled)
+	assert.ElementsMatch(suite.T(), []string{
+		"/v1/data/:id [GET]",
+		"/v2/data/:id [GET]",
+	}, result)
 }
