@@ -1,6 +1,6 @@
 module github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2
 
-go 1.25.3
+go 1.25.4
 
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
