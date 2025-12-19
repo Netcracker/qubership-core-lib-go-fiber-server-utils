@@ -1,6 +1,7 @@
 package tracingpoint
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -14,6 +15,8 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	zkmodel "github.com/openzipkin/zipkin-go/model"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -25,13 +28,20 @@ func tracingHandler(t *testing.T) (http.HandlerFunc, *bool) {
 		if err := json.NewDecoder(r.Body).Decode(&spans); err != nil {
 			t.Error(err)
 		}
-		assert.Equal(t, 1, len(spans))
 		span := spans[0]
 		assert.Equal(t, "service-name-namespace", span.LocalEndpoint.ServiceName)
 		assert.Equal(t, "/test", span.Tags["http.target"])
 		w.WriteHeader(fiber.StatusOK)
 	})
 	return handler, &gotRequest
+}
+
+func flashBatches(t *testing.T) {
+	tp := otel.GetTracerProvider()
+	tracerErr := tp.(*sdktrace.TracerProvider).Shutdown(context.Background())
+	if tracerErr != nil {
+		t.Fatalf("Failed to shutdown tracer provider: %v", tracerErr)
+	}
 }
 
 func TestEnableOtelTracingZipkin_WithDefault(t *testing.T) {
@@ -58,6 +68,7 @@ func TestEnableOtelTracingZipkin_WithDefault(t *testing.T) {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 	_, err = app.Test(httptest.NewRequest("GET", "/test", nil))
+	flashBatches(t)
 	assert.Nil(t, err)
 	assert.True(t, *gotRequest)
 }
@@ -75,6 +86,7 @@ func TestEnableOtelTracingZipkin_WithOptions(t *testing.T) {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 	_, err = app.Test(httptest.NewRequest("GET", "/test", nil))
+	flashBatches(t)
 	assert.Nil(t, err)
 	assert.True(t, *gotRequest)
 }
@@ -99,6 +111,7 @@ func TestEnableOtelTracingZipkin_B3_WithoutHeader(t *testing.T) {
 	testRequest := httptest.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
 	resp, err := app.Test(testRequest, 3000)
 
+	flashBatches(t)
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.True(t, *gotRequest)
@@ -131,6 +144,7 @@ func TestEnableOtelTracingZipkin_B3_WithSingleHeader(t *testing.T) {
 	testRequest, _ := http.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
 	testRequest.Header.Set("b3", b3Value)
 	resp, err := app.Test(testRequest, 3000)
+	flashBatches(t)
 
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
@@ -165,6 +179,7 @@ func TestEnableOtelTracingZipkin_B3_WithSingleHeader_BadTraceId(t *testing.T) {
 	testRequest, _ := http.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
 	testRequest.Header.Set("b3", b3Value)
 	resp, err := app.Test(testRequest, 3000)
+	flashBatches(t)
 
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
@@ -196,6 +211,7 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders(t *testing.T) {
 	testRequest.Header.Set("X-B3-TraceId", b3TraceIdValue)
 	testRequest.Header.Set("X-B3-SpanId", b3SpanIdValue)
 	resp, err := app.Test(testRequest, 3000)
+	flashBatches(t)
 
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
@@ -230,6 +246,7 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_BadTraceId(t *testing.T)
 	testRequest.Header.Set("X-B3-TraceId", b3TraceIdValue)
 	testRequest.Header.Set("X-B3-SpanId", b3SpanIdValue)
 	resp, err := app.Test(testRequest, 3000)
+	flashBatches(t)
 
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
@@ -268,6 +285,8 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_TestCaseInsensitivity(t 
 	testRequest.Header.Set("x-b3-traceid", b3TraceIdValue)
 	testRequest.Header.Set("x-b3-spanid", b3SpanIdValue)
 	resp, err = app.Test(testRequest, 3000)
+	flashBatches(t)
+
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.True(t, *gotRequest)

@@ -5,16 +5,17 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
 	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/test"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/tenant"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -24,11 +25,9 @@ type LoggerSuite struct {
 }
 
 const (
-	x_request_id_value                     = "11"
-	tenant_id_value                        = "22"
-	placeholder                            = "-"
-	expected_log_message                   = "[request_id=" + x_request_id_value + "] [tenant_id=" + tenant_id_value + "] [thread=-] [class=fiberserver] test-message"
-	expected_log_message_with_custom_field = "[request_id=" + x_request_id_value + "] [tenant_id=" + tenant_id_value + "] [thread=-] [class=fiberserver] [custom_field=custom_value] [absent_custom_field=-] test-message"
+	x_request_id_value = "11"
+	tenant_id_value    = "22"
+	placeholder        = "-"
 )
 
 func init() {
@@ -37,6 +36,7 @@ func init() {
 }
 
 func (suite *LoggerSuite) SetupSuite() {
+	serviceloader.Register(1, &security.DummyFiberServerSecurityMiddleware{})
 	test.StartMockServer()
 }
 
@@ -83,15 +83,15 @@ func (suite *LoggerSuite) TestFiberLoggerFormat() {
 		logger.DebugC(c.UserContext(), "test-message")
 
 		w.Close()
-		out, _ := io.ReadAll(r)
+		out, err := io.ReadAll(r)
+		assert.NoError(suite.T(), err)
 		os.Stdout = oldStdOut // restoring the real stdout
 		logger.Debug("AAAAAAAAAA" + string(out))
-		assert.True(suite.T(), strings.Contains(string(out), expected_log_message))
+		assert.Contains(suite.T(), string(out), "[request_id="+x_request_id_value+"] [tenant_id="+tenant_id_value+"] [thread=-] [class=fiberserver] test-message")
 		return nil
 	})
 
-	go app.Listen(":10001")
-
+	listenAndWaitForPort(suite.T(), app, 10001)
 	defer func() {
 		app.Shutdown()
 		time.Sleep(time.Millisecond * 100)
@@ -102,7 +102,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat() {
 	testRequest.Header.Set(xrequestid.X_REQUEST_ID_HEADER_NAME, x_request_id_value)
 	testRequest.Header.Set(tenant.TenantHeader, tenant_id_value)
 	resp, err := http.DefaultClient.Do(testRequest)
-
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
 }
 
@@ -122,15 +122,15 @@ func (suite *LoggerSuite) TestFiberLoggerFormat_CustomLogFields() {
 		logger.DebugC(c.UserContext(), "test-message")
 
 		w.Close()
-		out, _ := io.ReadAll(r)
+		out, err := io.ReadAll(r)
+		assert.NoError(suite.T(), err)
 		os.Stdout = oldStdOut // restoring the real stdout
 
-		assert.True(suite.T(), strings.Contains(string(out), expected_log_message_with_custom_field))
+		assert.Contains(suite.T(), string(out), "[request_id="+x_request_id_value+"] [tenant_id="+tenant_id_value+"] [thread=-] [class=fiberserver] [custom_field=custom_value] [absent_custom_field=-] test-message")
 		return nil
 	})
 
-	go app.Listen(":10001")
-
+	listenAndWaitForPort(suite.T(), app, 10001)
 	defer func() {
 		app.Shutdown()
 		time.Sleep(time.Millisecond * 100)
@@ -141,5 +141,6 @@ func (suite *LoggerSuite) TestFiberLoggerFormat_CustomLogFields() {
 	testRequest.Header.Set(xrequestid.X_REQUEST_ID_HEADER_NAME, x_request_id_value)
 	testRequest.Header.Set(tenant.TenantHeader, tenant_id_value)
 	resp, err := http.DefaultClient.Do(testRequest)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
 }
