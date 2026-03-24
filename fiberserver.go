@@ -113,7 +113,7 @@ func (builder *Builder) ProcessWithContext(ctx context.Context) (*fiber.App, err
 	// enable instrumental endpoints (health, metrics, tracer, pprof)
 	err := builder.enableActuatorEndpoints(app)
 	if err != nil {
-		logger.Errorf("%s", err.Error())
+		logger.Errorf("%+v", err)
 		return nil, err
 	}
 
