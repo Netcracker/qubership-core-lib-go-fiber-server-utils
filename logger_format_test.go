@@ -86,7 +86,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat() {
 		out, err := io.ReadAll(r)
 		assert.NoError(suite.T(), err)
 		os.Stdout = oldStdOut // restoring the real stdout
-		logger.Debug("AAAAAAAAAA" + string(out))
+		logger.Debugf("AAAAAAAAAA%s", string(out))
 		assert.Contains(suite.T(), string(out), "[request_id="+x_request_id_value+"] [tenant_id="+tenant_id_value+"] [thread=-] [class=fiberserver] test-message")
 		return nil
 	})

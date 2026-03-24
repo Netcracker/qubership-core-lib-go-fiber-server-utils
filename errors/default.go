@@ -33,11 +33,11 @@ func DefaultErrorHandler(unknownErrorCode errs.ErrorCode) fiber.ErrorHandler {
 		}
 		switch errT := err.(type) {
 		case errs.ErrCodeErr:
-			logger.ErrorC(ctx.UserContext(), errs.ToLogFormat(errT))
+			logger.ErrorC(ctx.UserContext(), "%s", errs.ToLogFormat(errT))
 			response = tmf.NewResponseBuilder(errT).Status(status).Build()
 		case error:
 			unknownError := errs.NewError(unknownErrorCode, errT.Error(), errT)
-			logger.ErrorC(ctx.UserContext(), errs.ToLogFormatWithoutStackTrace(unknownError))
+			logger.ErrorC(ctx.UserContext(), "%s", errs.ToLogFormatWithoutStackTrace(unknownError))
 			response = tmf.NewResponseBuilder(unknownError).Status(status).Build()
 		}
 		return ctx.Status(status).JSON(response)

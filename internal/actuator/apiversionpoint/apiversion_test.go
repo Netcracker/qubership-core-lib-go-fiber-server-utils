@@ -24,7 +24,7 @@ func TestEnableApiVersion(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.Nil(t, err)
 	assert.True(t, strings.Contains(string(body), "bluegreen"))
-	logger.Info(string(body))
+	logger.Infof("%s", string(body))
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
