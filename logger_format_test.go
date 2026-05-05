@@ -13,6 +13,7 @@ import (
 	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/test"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/tenant"
+	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xchannelrequestid"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
@@ -25,9 +26,10 @@ type LoggerSuite struct {
 }
 
 const (
-	x_request_id_value = "11"
-	tenant_id_value    = "22"
-	placeholder        = "-"
+	x_request_id_value         = "11"
+	tenant_id_value            = "22"
+	x_channel_request_id_value = "42"
+	placeholder                = "-"
 )
 
 func init() {
@@ -66,6 +68,12 @@ func (suite *LoggerSuite) TestGetLoggerTenantId() {
 	assert.Equal(suite.T(), tenant_id_value, getTenantId(ctx))
 }
 
+func (suite *LoggerSuite) TestGetLoggerXChannelRequestId() {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, xchannelrequestid.X_CHANNEL_REQUEST_ID_CONTEXT_NAME, xchannelrequestid.NewXChannelRequestIdContextObject(x_channel_request_id_value))
+	assert.Equal(suite.T(), x_channel_request_id_value, getXChannelRequestId(ctx))
+}
+
 func (suite *LoggerSuite) TestGetEmptyLoggerTenantId() {
 	ctx := context.Background()
 	assert.Equal(suite.T(), placeholder, getTenantId(ctx))
@@ -101,6 +109,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat() {
 	assert.Nil(suite.T(), err)
 	testRequest.Header.Set(xrequestid.X_REQUEST_ID_HEADER_NAME, x_request_id_value)
 	testRequest.Header.Set(tenant.TenantHeader, tenant_id_value)
+	testRequest.Header.Set(xchannelrequestid.X_CHANNEL_REQUEST_ID_HEADER_NAME, x_channel_request_id_value)
 	resp, err := http.DefaultClient.Do(testRequest)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
@@ -126,7 +135,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat_CustomLogFields() {
 		assert.NoError(suite.T(), err)
 		os.Stdout = oldStdOut // restoring the real stdout
 
-		assert.Contains(suite.T(), string(out), "[request_id="+x_request_id_value+"] [tenant_id="+tenant_id_value+"] [thread=-] [class=fiberserver] [custom_field=custom_value] [absent_custom_field=-] test-message")
+		assert.Contains(suite.T(), string(out), "[request_id="+x_request_id_value+"] [tenant_id="+tenant_id_value+"] [thread=-] [class=fiberserver] [x_channel_request_id="+x_channel_request_id_value+"] [custom_field=custom_value] [absent_custom_field=-] test-message")
 		return nil
 	})
 
@@ -140,6 +149,7 @@ func (suite *LoggerSuite) TestFiberLoggerFormat_CustomLogFields() {
 	assert.Nil(suite.T(), err)
 	testRequest.Header.Set(xrequestid.X_REQUEST_ID_HEADER_NAME, x_request_id_value)
 	testRequest.Header.Set(tenant.TenantHeader, tenant_id_value)
+	testRequest.Header.Set(xchannelrequestid.X_CHANNEL_REQUEST_ID_HEADER_NAME, x_channel_request_id_value)
 	resp, err := http.DefaultClient.Do(testRequest)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
