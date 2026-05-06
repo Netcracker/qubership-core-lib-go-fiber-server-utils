@@ -63,7 +63,7 @@ func getXChannelRequestId(ctx context.Context) string {
 	}
 	xChannelRequestIdContextObject, err := xchannelrequestid.Of(ctx)
 	if err != nil {
-		logger.DebugC(ctx, "can not get xChannelRequestIdContextObject from context: %v", err)
+		logger.Debugf("can not get xChannelRequestIdContextObject from context: %v", err)
 		return emptyValue
 	}
 
