@@ -6,9 +6,12 @@ import (
 	"fmt"
 
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/tenant"
+	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xchannelrequestid"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
+
+const emptyValue = "-"
 
 func init() {
 	logging.DefaultFormat.SetMessageFormat(platformMessageFmt)
@@ -16,19 +19,20 @@ func init() {
 
 func platformMessageFmt(r *logging.Record, b *bytes.Buffer, color int, lvl string) (int, error) {
 	timeFormat := "2006-01-02T15:04:05.000"
-	return fmt.Fprintf(b, "[%s] [%s] [request_id=%s] [tenant_id=%s] [thread=%s] [class=%s] %s",
+	return fmt.Fprintf(b, "[%s] [%s] [request_id=%s] [tenant_id=%s] [thread=%s] [class=%s] [x_channel_request_id=%s] %s",
 		r.Time.Format(timeFormat),
 		lvl,
 		getRequestId(r.Ctx),
 		getTenantId(r.Ctx),
 		getContextIdentifier(r.Ctx),
 		logging.ConstructCallerValueByRecord(r),
+		getXChannelRequestId(r.Ctx),
 		logging.JoinStringsWithSpace(logging.AssembleDefaultCustomLogFields(r.Ctx), r.Message),
 	)
 }
 
-func getContextIdentifier(ctx context.Context) string {
-	return "-"
+func getContextIdentifier(_ context.Context) string {
+	return emptyValue
 }
 
 func getRequestId(ctx context.Context) string {
@@ -39,7 +43,7 @@ func getRequestId(ctx context.Context) string {
 			return requestId.GetRequestId()
 		}
 	}
-	return "-"
+	return emptyValue
 }
 
 func getTenantId(ctx context.Context) string {
@@ -50,6 +54,18 @@ func getTenantId(ctx context.Context) string {
 			return tenantId.GetTenant()
 		}
 	}
-	return "-"
+	return emptyValue
 }
 
+func getXChannelRequestId(ctx context.Context) string {
+	if ctx == nil {
+		return emptyValue
+	}
+	xChannelRequestIdContextObject, err := xchannelrequestid.Of(ctx)
+	if err != nil {
+		logger.Debugf("can not get xChannelRequestIdContextObject from context: %v", err)
+		return emptyValue
+	}
+
+	return xChannelRequestIdContextObject.GetChannelRequestId()
+}
