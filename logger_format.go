@@ -11,6 +11,8 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
 
+const emptyValue = "-"
+
 func init() {
 	logging.DefaultFormat.SetMessageFormat(platformMessageFmt)
 }
@@ -30,7 +32,7 @@ func platformMessageFmt(r *logging.Record, b *bytes.Buffer, color int, lvl strin
 }
 
 func getContextIdentifier(_ context.Context) string {
-	return "-"
+	return emptyValue
 }
 
 func getRequestId(ctx context.Context) string {
@@ -41,7 +43,7 @@ func getRequestId(ctx context.Context) string {
 			return requestId.GetRequestId()
 		}
 	}
-	return "-"
+	return emptyValue
 }
 
 func getTenantId(ctx context.Context) string {
@@ -52,16 +54,18 @@ func getTenantId(ctx context.Context) string {
 			return tenantId.GetTenant()
 		}
 	}
-	return "-"
+	return emptyValue
 }
 
 func getXChannelRequestId(ctx context.Context) string {
-	if ctx != nil {
-		abstractChannelRequestId := ctx.Value(xchannelrequestid.X_CHANNEL_REQUEST_ID_CONTEXT_NAME)
-		if abstractChannelRequestId != nil {
-			channelRequestId := abstractChannelRequestId.(xchannelrequestid.XChannelRequestId)
-			return channelRequestId.GetChannelRequestId()
-		}
+	if ctx == nil {
+		return emptyValue
 	}
-	return "-"
+	xChannelRequestIdContextObject, err := xchannelrequestid.Of(ctx)
+	if err != nil {
+		logger.DebugC(ctx, "can not get xChannelRequestIdContextObject from context: %v", err)
+		return emptyValue
+	}
+
+	return xChannelRequestIdContextObject.GetChannelRequestId()
 }
