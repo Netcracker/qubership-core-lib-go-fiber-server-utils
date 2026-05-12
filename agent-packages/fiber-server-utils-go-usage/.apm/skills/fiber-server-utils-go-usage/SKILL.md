@@ -11,17 +11,6 @@ formatting, and optional health / prometheus / pprof / tracing
 endpoints. Without it you have to wire each of these yourself
 on every service.
 
-## Why it matters
-
-A bare `fiber.New()` does not:
-- propagate `X-Request-Id`, `X-Version`, `Accept-Language` etc.
-  through `ctx.UserContext()`
-- inject `request_id` / `tenant_id` into log lines
-- write `X-Request-Id` back into the HTTP response
-- enforce platform security headers/JWT
-
-`fiberserver.New().Process()` does all of the above in one call.
-
 ## Import
 
 ```go
@@ -199,20 +188,3 @@ TMF 404 with code `NC-COMMON-2101`.
 - Ignoring the `(*fiber.App, error)` from `Process` / `ProcessWithContext` — masks build-time wiring errors.
 - Calling `Process()` before `serviceloader.Register(1, &security.DummyFiberServerSecurityMiddleware{})` — panics with `"can not find implementation for security.SecurityMiddleware"`.
 
-## Verifying it works
-
-```sh
-$ curl -i -H "X-Request-Id: abc-123" http://localhost:8080/hello
-HTTP/1.1 200 OK
-X-Request-Id: abc-123          # propagated back into response
-```
-
-```
-# log line
-[INFO] [request_id=abc-123] [tenant_id=] [class=main] Handling /hello request
-```
-
-If the response is missing `X-Request-Id` or logs show
-`request_id=-`, the middleware is not active — usually because
-`Process()` was never called, or the handler used `logger.Info`
-instead of `logger.InfoC(c.UserContext(), ...)`.
