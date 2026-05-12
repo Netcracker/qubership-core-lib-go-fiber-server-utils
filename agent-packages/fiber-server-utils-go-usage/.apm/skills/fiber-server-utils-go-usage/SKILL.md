@@ -1,6 +1,6 @@
 ---
 name: fiber-server-utils-go-usage
-description: Builder for fiber.App preconfigured with Qubership cloud-core middleware (context-propagation, security, request-id-aware logging, health, prometheus, pprof, tracing). Use when writing or reviewing Go microservices that expose REST over fiber.
+description: Use when wiring a Fiber HTTP server in a Qubership Go microservice with platform middleware (context propagation, request-id logging, security).
 ---
 
 # qubership-core-lib-go-fiber-server-utils
@@ -191,26 +191,13 @@ Override via `DEPRECATED_API_DISABLED` env (requires
 `EnvPropertySource` in configloader). Matched routes return
 TMF 404 with code `NC-COMMON-2101`.
 
-## Anti-patterns
+## Common pitfalls
 
-```go
-// WRONG: bare fiber — no context propagation, no request_id in logs,
-// no X-Request-Id in response, no security middleware.
-app := fiber.New()
-
-// WRONG: skipping security registration. Process() will panic.
-app, _ := fiberserver.New().Process() // before serviceloader.Register(...)
-
-// WRONG: ignoring the error from Process / ProcessWithContext.
-app, _ := fiberserver.New().Process()
-
-// WRONG: reading request data from c.Context() instead of c.UserContext().
-// c.Context() is the fasthttp ctx — it does not carry the propagated values.
-xrequestid.Of(c.Context())
-
-// WRONG: plain logger.Info inside a handler — request_id will be "-".
-logger.Info("handling")            // use logger.InfoC(c.UserContext(), ...)
-```
+- `c.Context()` instead of `c.UserContext()` — `c.Context()` is the fasthttp ctx and does not carry propagated values; read providers via `c.UserContext()`.
+- `logger.Info(msg)` inside a handler — logs `request_id=-`. Use `logger.InfoC(c.UserContext(), msg)` (also `DebugC` / `WarnC` / `ErrorC`).
+- Bare `fiber.New()` — bypasses context propagation, request-id logging, response header injection, and security middleware. Use `fiberserver.New(...).Process()`.
+- Ignoring the `(*fiber.App, error)` from `Process` / `ProcessWithContext` — masks build-time wiring errors.
+- Calling `Process()` before `serviceloader.Register(1, &security.DummyFiberServerSecurityMiddleware{})` — panics with `"can not find implementation for security.SecurityMiddleware"`.
 
 ## Verifying it works
 
