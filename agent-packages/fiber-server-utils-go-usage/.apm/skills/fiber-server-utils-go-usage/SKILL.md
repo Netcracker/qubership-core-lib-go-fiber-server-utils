@@ -11,17 +11,6 @@ formatting, and optional health / prometheus / pprof / tracing
 endpoints. Without it you have to wire each of these yourself
 on every service.
 
-## Import
-
-```go
-import (
-    "github.com/gofiber/fiber/v2"
-    fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-    "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
-    "github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
-)
-```
-
 ## Required setup order (do not reorder)
 
 1. `configloader.InitWithSourcesArray(configloader.BasePropertySources())`
