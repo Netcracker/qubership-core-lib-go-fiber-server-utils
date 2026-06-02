@@ -5,9 +5,9 @@ go 1.26.3
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.6.4
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.5.3
-	github.com/netcracker/qubership-core-lib-go/v3 v3.10.0
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.0
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.11.0
 	github.com/openzipkin/zipkin-go v0.4.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
@@ -25,7 +25,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
