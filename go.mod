@@ -5,7 +5,7 @@ go 1.26.3
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.1
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.2
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.11.0
 	github.com/openzipkin/zipkin-go v0.4.3
