@@ -108,7 +108,7 @@ func TestEnableOtelTracingZipkin_B3_WithoutHeader(t *testing.T) {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 
-	testRequest := httptest.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
+	testRequest := httptest.NewRequest(http.MethodGet, "/test", nil)
 	resp, err := app.Test(testRequest, 3000)
 
 	flashBatches(t)

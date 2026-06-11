@@ -59,6 +59,7 @@ func TestPlatformPrometheusMiddleware_UsesPathTemplate(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "/test/1", nil)
 	assert.Nil(t, err)
+	req.Host = "localhost"
 
 	resp, err := app.Test(req)
 	assert.Nil(t, err)
