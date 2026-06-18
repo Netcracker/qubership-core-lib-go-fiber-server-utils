@@ -5,9 +5,9 @@ go 1.26.4
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.0
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.11.0
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.1
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.1
+	github.com/netcracker/qubership-core-lib-go/v3 v3.11.1
 	github.com/openzipkin/zipkin-go v0.4.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
@@ -35,7 +35,7 @@ require (
 	github.com/knadh/koanf/parsers/yaml v1.0.0 // indirect
 	github.com/knadh/koanf/providers/env v1.1.0 // indirect
 	github.com/knadh/koanf/providers/file v1.2.1 // indirect
-	github.com/knadh/koanf/v2 v2.3.4 // indirect
+	github.com/knadh/koanf/v2 v2.3.5 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
@@ -50,7 +50,7 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/viney-shih/go-lock v1.1.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel/exporters/zipkin v1.43.0 // indirect
+	go.opentelemetry.io/otel/exporters/zipkin v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/sync v0.15.0 // indirect
