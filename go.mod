@@ -2,6 +2,19 @@ module github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2
 
 go 1.26.4
 
+retract (
+	v2.6.1  // Published by error.
+	v2.6.2  // Published by error.
+	v2.6.3	// Published by error.
+	v2.6.4	// Published by error.
+	v2.6.5	// Published by error.
+	v2.7.0	// Published by error.
+	v2.8.0	// Published by error.
+	v2.8.1	// Published by error.
+	v2.9.0	// Published by error.
+)
+
+
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.13
