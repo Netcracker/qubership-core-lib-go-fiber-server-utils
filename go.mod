@@ -17,9 +17,9 @@ retract (
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.1
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.1
-	github.com/netcracker/qubership-core-lib-go/v3 v3.11.1
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.2
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.2
+	github.com/netcracker/qubership-core-lib-go/v3 v3.11.2
 	github.com/openzipkin/zipkin-go v0.4.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
@@ -44,7 +44,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
-	github.com/knadh/koanf/parsers/yaml v1.0.0 // indirect
+	github.com/knadh/koanf/parsers/yaml v1.1.0 // indirect
 	github.com/knadh/koanf/providers/env v1.1.0 // indirect
 	github.com/knadh/koanf/providers/file v1.2.1 // indirect
 	github.com/knadh/koanf/v2 v2.3.5 // indirect
