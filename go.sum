@@ -130,6 +130,7 @@ github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.0 h1:0HzPqY0
 github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.0/go.mod h1:7qxfXCo98MX6K/dMNdMIXq3+bxpI0xW+WRN4HjDm3iA=
 github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.1 h1:JTOyyVf8zJ3VhHfoMYST3lBj47Nm1JcltULSWt/Llmc=
 github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.1/go.mod h1:/4I+mnDYwL1qSupatHPh52SKSTj4bHKMmUJpybPhbUE=
+github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.1/go.mod h1:2jKp0FxoFETNM8mA7rzNfJv2e7TU5YJj3Pb+VGN07a0=
 github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.0 h1:FbygBHyHjaGDNCSSbsAqGAJKwSkZEYGQirCgSDntqIw=
 github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.0/go.mod h1:UyKRoL3ZEFNjNYB+q6xfLh/ulqGVGsy8Xf6pJ/VKaC4=
 github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.1 h1:HkvPHq26ogmC1omgpfIq7/XxgyKM/za8ac74KUhvNqI=
