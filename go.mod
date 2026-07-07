@@ -16,7 +16,7 @@ retract (
 
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
-	github.com/gofiber/fiber/v2 v2.52.13
+	github.com/gofiber/fiber/v2 v2.52.14
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.4
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.2
 	github.com/netcracker/qubership-core-lib-go/v3 v3.13.0
@@ -45,7 +45,6 @@ require (
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/knadh/koanf/parsers/yaml v1.1.0 // indirect
-	github.com/knadh/koanf/providers/env v1.1.0 // indirect
 	github.com/knadh/koanf/providers/env/v2 v2.0.0 // indirect
 	github.com/knadh/koanf/providers/file v1.2.1 // indirect
 	github.com/knadh/koanf/v2 v2.3.5 // indirect
