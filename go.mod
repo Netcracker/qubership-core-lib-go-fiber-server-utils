@@ -1,6 +1,6 @@
 module github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2
 
-go 1.26.4
+go 1.26.5
 
 retract (
 	v2.9.0 // Published by error.
