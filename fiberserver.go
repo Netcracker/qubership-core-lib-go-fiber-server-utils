@@ -3,21 +3,21 @@ package fiberserver
 import (
 	"context"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/apiversion"
 	clpropertyutils "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/configloader-property-utils"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/loglevel"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/monitoring"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/deprecatedapi"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/apiversionpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/healthpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/loglevelpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/monitorpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/pprofpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/tracingpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/deprecatedapi"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/apiversionpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/healthpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/loglevelpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/monitorpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/pprofpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/tracingpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxhelper"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxmanager"
@@ -156,24 +156,24 @@ func enableSecurity(app *fiber.App) {
 }
 
 func contextInitializer(ctx context.Context) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		requestHeaders := map[string]interface{}{}
 		c.Request().Header.VisitAll(func(key, value []byte) {
 			requestHeaders[string(key)] = string(value)
 		})
 
 		requestCtx := ctxmanager.InitContext(ctx, requestHeaders)
-		c.SetUserContext(requestCtx)
+		c.SetContext(requestCtx)
 		return c.Next()
 	}
 
 }
 
 func responseEnricher() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		err := ctxhelper.AddResponsePropagatableContextData(c.UserContext(), c.Response().Header.Add)
+	return func(c fiber.Ctx) error {
+		err := ctxhelper.AddResponsePropagatableContextData(c.Context(), c.Response().Header.Add)
 		if err != nil {
-			logger.ErrorC(c.UserContext(), "can't insert propagatable  data to incoming response. Error %+v", err)
+			logger.ErrorC(c.Context(), "can't insert propagatable  data to incoming response. Error %+v", err)
 			return err
 		}
 		return c.Next()

@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/apiversion"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/monitoring"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/apiversionpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/healthpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/monitorpoint"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/internal/actuator/pprofpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/apiversionpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/healthpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/monitorpoint"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/internal/actuator/pprofpoint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -113,7 +113,7 @@ func app() *fiber.App {
 	apiVersionService, _ := apiversion.NewApiVersionService(apiversion.ApiVersionConfig{PathToApiVersionInfoFile: "../../testdata/api-version-info.json"})
 	app.Get("/api-version", apiversionpoint.EnableApiVersion(apiVersionService))
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Hello, World!")
 	})
 
