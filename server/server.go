@@ -3,7 +3,7 @@ package server
 import (
 	"crypto/tls"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
@@ -20,17 +20,17 @@ func StartServer(app *fiber.App, listenAddressKey string) {
 	StartServerOnAddress(app, listenAddress)
 }
 
-func StartServerOnAddress(app *fiber.App, listenAddress string) {
+func StartServerOnAddress(app *fiber.App, listenAddress string, listenConfig ...fiber.ListenConfig) {
 	if utils.IsTlsEnabled() {
-		ln, err := tls.Listen(app.Config().Network, listenAddress, utils.GetTlsConfig())
+		ln, err := tls.Listen(fiber.NetworkTCP4, listenAddress, utils.GetTlsConfig())
 		if err != nil {
 			logger.Panic("Cannot create listener on address=%s, error=%+v", listenAddress, err)
 		}
-		if err := app.Listener(ln); err != nil {
+		if err := app.Listener(ln, listenConfig...); err != nil {
 			logger.Panic("Cannot start tls listener on address=%s, error=%+v", listenAddress, err)
 		}
 	} else {
-		if err := app.Listen(listenAddress); err != nil {
+		if err := app.Listen(listenAddress, listenConfig...); err != nil {
 			logger.Panic("Cannot start listener on address=%s, error=%+v", listenAddress, err)
 		}
 	}

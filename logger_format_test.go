@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/test"
+	"github.com/gofiber/fiber/v3"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/test"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/tenant"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xchannelrequestid"
@@ -83,12 +83,12 @@ func (suite *LoggerSuite) TestFiberLoggerFormat() {
 	app, err := New(fiber.Config{DisableKeepalive: true}).Process()
 	assert.Nil(suite.T(), err)
 
-	app.Get("test", func(c *fiber.Ctx) error {
+	app.Get("test", func(c fiber.Ctx) error {
 		oldStdOut := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		logger.DebugC(c.UserContext(), "test-message")
+		logger.DebugC(c.Context(), "test-message")
 
 		w.Close()
 		out, err := io.ReadAll(r)
@@ -121,14 +121,14 @@ func (suite *LoggerSuite) TestFiberLoggerFormat_CustomLogFields() {
 
 	logging.DefaultFormat.SetCustomLogFields("[custom_field=%{custom_field}] [absent_custom_field=%{absent_custom_field}]")
 
-	app.Get("test", func(c *fiber.Ctx) error {
+	app.Get("test", func(c fiber.Ctx) error {
 		oldStdOut := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		c.SetUserContext(context.WithValue(c.UserContext(), "custom_field", "custom_value"))
+		c.SetContext(context.WithValue(c.Context(), "custom_field", "custom_value"))
 
-		logger.DebugC(c.UserContext(), "test-message")
+		logger.DebugC(c.Context(), "test-message")
 
 		w.Close()
 		out, err := io.ReadAll(r)

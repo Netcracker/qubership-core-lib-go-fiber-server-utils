@@ -14,14 +14,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/apiversion"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/monitoring"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/test"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/test"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/acceptlanguage"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
@@ -83,7 +83,7 @@ func (suite *TestSuite) TestExampleFiberserver() {
 	appPort, err := getFreePort()
 	require.Nil(suite.T(), err)
 
-	app.Get("/test", func(ctx *fiber.Ctx) error {
+	app.Get("/test", func(ctx fiber.Ctx) error {
 		return ctx.Status(fiber.StatusOK).SendString("I'm test handler!!!")
 	})
 	listenAndWaitForPort(suite.T(), app, appPort)
@@ -163,16 +163,16 @@ func (suite *TestSuite) TestFiberBuilderWithContext() {
 
 	assert.Nil(suite.T(), err)
 
-	app.Get("/test", func(ctx *fiber.Ctx) error {
-		value := ctx.UserContext().Value("test-key")
+	app.Get("/test", func(ctx fiber.Ctx) error {
+		value := ctx.Context().Value("test-key")
 		return ctx.Status(fiber.StatusOK).SendString(fmt.Sprintf("%s", value))
 	})
 
-	app.Get("/test-wait", func(ctx *fiber.Ctx) error {
+	app.Get("/test-wait", func(ctx fiber.Ctx) error {
 		select {
 		case <-time.After(5 * time.Second):
 			return ctx.Status(fiber.StatusOK).SendString("done")
-		case <-ctx.UserContext().Done():
+		case <-ctx.Context().Done():
 			return ctx.Status(fiber.StatusOK).SendString("canceled")
 		}
 	})
@@ -208,7 +208,7 @@ func (suite *TestSuite) TestFiberBuilderTracer() {
 		Process()
 
 	assert.Nil(suite.T(), err)
-	app.Get("/test", func(ctx *fiber.Ctx) error {
+	app.Get("/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 	_, err = app.Test(httptest.NewRequest("GET", "/test", nil))
@@ -222,21 +222,21 @@ func (suite *TestSuite) TestFiberBuilderContext() {
 	app, err := New(fiber.Config{DisableKeepalive: true}).Process()
 	assert.Equal(suite.T(), err, nil)
 	requestIdFromOutgoingRequest := ""
-	app.Get("/test", func(ctx *fiber.Ctx) error {
+	app.Get("/test", func(ctx fiber.Ctx) error {
 		testRequest2, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/test-context", port), nil)
-		ctxhelper.AddSerializableContextData(ctx.UserContext(), testRequest2.Header.Set)
+		ctxhelper.AddSerializableContextData(ctx.Context(), testRequest2.Header.Set)
 		resp, err := http.DefaultClient.Do(testRequest2)
 		assert.Nil(suite.T(), err)
 		assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 
-	app.Get("/test-context", func(ctx *fiber.Ctx) error {
+	app.Get("/test-context", func(ctx fiber.Ctx) error {
 		requestId := string(ctx.Request().Header.Peek(xrequestid.X_REQUEST_ID_HEADER_NAME))
 		assert.NotEmpty(suite.T(), requestId)
 		requestIdFromOutgoingRequest = requestId
 		assert.Equal(suite.T(), "testLanguage", string(ctx.Request().Header.Peek(acceptlanguage.ACCEPT_LANGUAGE_HEADER_NAME)))
-		logger.InfoC(ctx.UserContext(), "test resp")
+		logger.InfoC(ctx.Context(), "test resp")
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 
@@ -289,16 +289,16 @@ func (suite *TestSuite) TestDisableDeprecatedApi() {
 	app, err := New(fiber.Config{}).WithDeprecatedApiSwitchedOff().Process()
 	assertions.Nil(err)
 
-	app.Get("/deprecated-api/v1/test", func(ctx *fiber.Ctx) error {
+	app.Get("/deprecated-api/v1/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
-	app.Post("/deprecated-api/v1/test", func(ctx *fiber.Ctx) error {
+	app.Post("/deprecated-api/v1/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
-	app.Get("/deprecated-api/v2/test", func(ctx *fiber.Ctx) error {
+	app.Get("/deprecated-api/v2/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
-	app.Get("/deprecated-api/v3/test", func(ctx *fiber.Ctx) error {
+	app.Get("/deprecated-api/v3/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 
@@ -340,16 +340,16 @@ func (suite *TestSuite) TestDeprecatedApiDisabledFalse() {
 	app, err := New(fiber.Config{}).WithDeprecatedApiSwitchedOff().Process()
 	assertions.Nil(err)
 
-	app.Get("/deprecated-api/v1/test", func(ctx *fiber.Ctx) error {
+	app.Get("/deprecated-api/v1/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
-	app.Post("/deprecated-api/v1/test", func(ctx *fiber.Ctx) error {
+	app.Post("/deprecated-api/v1/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
-	app.Get("/deprecated-api/v2/test", func(ctx *fiber.Ctx) error {
+	app.Get("/deprecated-api/v2/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
-	app.Get("/deprecated-api/v3/test", func(ctx *fiber.Ctx) error {
+	app.Get("/deprecated-api/v3/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 
