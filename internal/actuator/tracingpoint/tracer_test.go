@@ -9,8 +9,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	zkmodel "github.com/openzipkin/zipkin-go/model"
@@ -64,7 +65,7 @@ func TestEnableOtelTracingZipkin_WithDefault(t *testing.T) {
 	app := fiber.New()
 	err := EnableOtelTracing(tracing.NewZipkinTracer(), app)
 	assert.Nil(t, err)
-	app.Get("/test", func(ctx *fiber.Ctx) error {
+	app.Get("/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 	_, err = app.Test(httptest.NewRequest("GET", "/test", nil))
@@ -82,7 +83,7 @@ func TestEnableOtelTracingZipkin_WithOptions(t *testing.T) {
 	options := createDefaultZipkinOptions(tracerHost)
 	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
 	assert.Nil(t, err)
-	app.Get("/test", func(ctx *fiber.Ctx) error {
+	app.Get("/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 	_, err = app.Test(httptest.NewRequest("GET", "/test", nil))
@@ -101,15 +102,15 @@ func TestEnableOtelTracingZipkin_B3_WithoutHeader(t *testing.T) {
 	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
 	assert.Nil(t, err)
 
-	app.Get("/test", func(ctx *fiber.Ctx) error {
-		uCtx := ctx.UserContext()
+	app.Get("/test", func(ctx fiber.Ctx) error {
+		uCtx := ctx.Context()
 		sc := trace.SpanContextFromContext(uCtx)
 		assert.True(t, sc.IsValid()) // must contain random traceId and spanId
 		return ctx.SendStatus(fiber.StatusOK)
 	})
 
 	testRequest := httptest.NewRequest(http.MethodGet, "/test", nil)
-	resp, err := app.Test(testRequest, 3000)
+	resp, err := app.Test(testRequest, fiber.TestConfig{Timeout: 3000 * time.Millisecond})
 
 	flashBatches(t)
 	assert.Nil(t, err)
@@ -133,8 +134,8 @@ func TestEnableOtelTracingZipkin_B3_WithSingleHeader(t *testing.T) {
 	b3ParentSpanIdValue := "05e3ac9a4f6e3b90"
 	b3Value := fmt.Sprintf("%s-%s-%s-%s", b3TraceIdValue, b3SpanIdValue, b3SampledValue, b3ParentSpanIdValue)
 
-	app.Get("/test", func(ctx *fiber.Ctx) error {
-		uCtx := ctx.UserContext()
+	app.Get("/test", func(ctx fiber.Ctx) error {
+		uCtx := ctx.Context()
 		sc := trace.SpanContextFromContext(uCtx)
 		assert.Equal(t, b3TraceIdValue, sc.TraceID().String())
 		assert.NotEqual(t, b3SpanIdValue, sc.SpanID().String())
@@ -143,7 +144,7 @@ func TestEnableOtelTracingZipkin_B3_WithSingleHeader(t *testing.T) {
 
 	testRequest, _ := http.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
 	testRequest.Header.Set("b3", b3Value)
-	resp, err := app.Test(testRequest, 3000)
+	resp, err := app.Test(testRequest, fiber.TestConfig{Timeout: 3000 * time.Millisecond})
 	flashBatches(t)
 
 	assert.Nil(t, err)
@@ -167,8 +168,8 @@ func TestEnableOtelTracingZipkin_B3_WithSingleHeader_BadTraceId(t *testing.T) {
 	b3ParentSpanIdValue := "05e3ac9a4f6e3b90"
 	b3Value := fmt.Sprintf("%s-%s-%s-%s", b3TraceIdValue, b3SpanIdValue, b3SampledValue, b3ParentSpanIdValue)
 
-	app.Get("/test", func(ctx *fiber.Ctx) error {
-		uCtx := ctx.UserContext()
+	app.Get("/test", func(ctx fiber.Ctx) error {
+		uCtx := ctx.Context()
 		sc := trace.SpanContextFromContext(uCtx)
 		assert.True(t, sc.IsValid())
 		assert.NotEqual(t, b3TraceIdValue, sc.TraceID().String())
@@ -178,7 +179,7 @@ func TestEnableOtelTracingZipkin_B3_WithSingleHeader_BadTraceId(t *testing.T) {
 
 	testRequest, _ := http.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
 	testRequest.Header.Set("b3", b3Value)
-	resp, err := app.Test(testRequest, 3000)
+	resp, err := app.Test(testRequest, fiber.TestConfig{Timeout: 3000 * time.Millisecond})
 	flashBatches(t)
 
 	assert.Nil(t, err)
@@ -199,8 +200,8 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders(t *testing.T) {
 	b3TraceIdValue := "80f198ee56343ba864fe8b2a57d3eff7"
 	b3SpanIdValue := "e457b5a2e4d86bd1"
 
-	app.Get("/test", func(ctx *fiber.Ctx) error {
-		uCtx := ctx.UserContext()
+	app.Get("/test", func(ctx fiber.Ctx) error {
+		uCtx := ctx.Context()
 		sc := trace.SpanContextFromContext(uCtx)
 		assert.Equal(t, b3TraceIdValue, sc.TraceID().String())
 		assert.NotEqual(t, b3SpanIdValue, sc.SpanID().String())
@@ -210,7 +211,7 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders(t *testing.T) {
 	testRequest, _ := http.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
 	testRequest.Header.Set("X-B3-TraceId", b3TraceIdValue)
 	testRequest.Header.Set("X-B3-SpanId", b3SpanIdValue)
-	resp, err := app.Test(testRequest, 3000)
+	resp, err := app.Test(testRequest, fiber.TestConfig{Timeout: 3000 * time.Millisecond})
 	flashBatches(t)
 
 	assert.Nil(t, err)
@@ -231,8 +232,8 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_BadTraceId(t *testing.T)
 	b3TraceIdValue := "80f198ee56343ba"
 	b3SpanIdValue := "e457b5a2e4d86bd1"
 
-	app.Get("/test", func(ctx *fiber.Ctx) error {
-		uCtx := ctx.UserContext()
+	app.Get("/test", func(ctx fiber.Ctx) error {
+		uCtx := ctx.Context()
 		sc := trace.SpanContextFromContext(uCtx)
 		assert.True(t, sc.IsValid())
 		assert.NotEqual(t, b3TraceIdValue, sc.TraceID().String())
@@ -245,7 +246,7 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_BadTraceId(t *testing.T)
 
 	testRequest.Header.Set("X-B3-TraceId", b3TraceIdValue)
 	testRequest.Header.Set("X-B3-SpanId", b3SpanIdValue)
-	resp, err := app.Test(testRequest, 3000)
+	resp, err := app.Test(testRequest, fiber.TestConfig{Timeout: 3000 * time.Millisecond})
 	flashBatches(t)
 
 	assert.Nil(t, err)
@@ -266,8 +267,8 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_TestCaseInsensitivity(t 
 	b3TraceIdValue := "80f198ee56343ba864fe8b2a57d3eff7"
 	b3SpanIdValue := "e457b5a2e4d86bd1"
 
-	app.Get("/test", func(ctx *fiber.Ctx) error {
-		uCtx := ctx.UserContext()
+	app.Get("/test", func(ctx fiber.Ctx) error {
+		uCtx := ctx.Context()
 		sc := trace.SpanContextFromContext(uCtx)
 		assert.Equal(t, b3TraceIdValue, sc.TraceID().String())
 		assert.NotEqual(t, b3SpanIdValue, sc.SpanID().String())
@@ -277,14 +278,14 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_TestCaseInsensitivity(t 
 	testRequest, _ := http.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
 	testRequest.Header.Set("X-B3-TRACEID", b3TraceIdValue)
 	testRequest.Header.Set("X-B3-SPANID", b3SpanIdValue)
-	resp, err := app.Test(testRequest, 3000)
+	resp, err := app.Test(testRequest, fiber.TestConfig{Timeout: 3000 * time.Millisecond})
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	testRequest, _ = http.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
 	testRequest.Header.Set("x-b3-traceid", b3TraceIdValue)
 	testRequest.Header.Set("x-b3-spanid", b3SpanIdValue)
-	resp, err = app.Test(testRequest, 3000)
+	resp, err = app.Test(testRequest, fiber.TestConfig{Timeout: 3000 * time.Millisecond})
 	flashBatches(t)
 
 	assert.Nil(t, err)

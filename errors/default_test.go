@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 	"github.com/stretchr/testify/require"
@@ -35,7 +35,7 @@ func TestDefaultErrorHandler(t *testing.T) {
 	assert.Equal("test error", tmfResponse.Message)
 	assert.Equal("500", *tmfResponse.Status)
 	assert.Equal(tmf.TypeV1_0, tmfResponse.Type)
-	assert.Equal(fiber.MIMEApplicationJSON, string(response.Header.ContentType()))
+	assert.Equal(fiber.MIMEApplicationJSONCharsetUTF8, string(response.Header.ContentType()))
 }
 
 type CustomErr struct {
@@ -47,7 +47,7 @@ func NewCustomErr(detail string) *CustomErr {
 	return errs.New(CustomErr{CustomField: detail}, errs.ErrorCode{Code: "custom test error", Title: "custom test title"}, detail)
 }
 
-func (e *CustomErr) Handle(ctx *fiber.Ctx) error {
+func (e *CustomErr) Handle(ctx fiber.Ctx) error {
 	status := http.StatusBadRequest
 	response := tmf.NewResponseBuilder(e).
 		Meta(map[string]interface{}{"custom": e.CustomField}).
@@ -77,7 +77,7 @@ func TestDefaultErrorHandlerCustomErr(t *testing.T) {
 	assert.Equal(strconv.Itoa(http.StatusBadRequest), *tmfResponse.Status)
 	assert.Equal("custom test details", (*tmfResponse.Meta)["custom"].(string))
 	assert.Equal(tmf.TypeV1_0, tmfResponse.Type)
-	assert.Equal(fiber.MIMEApplicationJSON, string(response.Header.ContentType()))
+	assert.Equal(fiber.MIMEApplicationJSONCharsetUTF8, string(response.Header.ContentType()))
 }
 
 type customErrWithBadHandleFunc struct {
@@ -94,7 +94,7 @@ func newCustomErrWithBadHandleFunc(detail string) *customErrWithBadHandleFunc {
 	return &customErr
 }
 
-func (e *customErrWithBadHandleFunc) Handle(ctx *fiber.Ctx) error {
+func (e *customErrWithBadHandleFunc) Handle(ctx fiber.Ctx) error {
 	return errors.New("test error from Handle()")
 }
 
@@ -120,5 +120,5 @@ func TestDefaultErrorHandlerCustomErrWithBadHandleFunc(t *testing.T) {
 	assert.Equal(expectedMessage, tmfResponse.Message)
 	assert.Equal(strconv.Itoa(http.StatusInternalServerError), *tmfResponse.Status)
 	assert.Equal(tmf.TypeV1_0, tmfResponse.Type)
-	assert.Equal(fiber.MIMEApplicationJSON, string(response.Header.ContentType()))
+	assert.Equal(fiber.MIMEApplicationJSONCharsetUTF8, string(response.Header.ContentType()))
 }

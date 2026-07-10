@@ -1,7 +1,7 @@
 package healthpoint
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
@@ -19,7 +19,7 @@ func EnableHealth(healthService health.HealthService) fiber.Handler {
 
 }
 func healthMiddleware(healthService health.HealthService) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		data := healthService.GetHealth()
 		return c.Status(data.GetStatusCode()).
 			JSON(data.GetHealthMap())

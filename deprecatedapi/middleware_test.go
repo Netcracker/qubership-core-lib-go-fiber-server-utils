@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/stretchr/testify/assert"
@@ -78,7 +78,7 @@ func (suite *TestSuite) TestV3() {
 
 func test(assert *require.Assertions, app *fiber.App, method string, uri string, expectedCode int, expectedStr string) {
 	req := httptest.NewRequest(method, uri, nil)
-	resp, _ := app.Test(req, -1)
+	resp, _ := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Equal(expectedCode, resp.StatusCode)
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -94,7 +94,7 @@ func test(assert *require.Assertions, app *fiber.App, method string, uri string,
 	}
 }
 
-func OkHandler(ctx *fiber.Ctx) error {
+func OkHandler(ctx fiber.Ctx) error {
 	return ctx.Status(200).Send([]byte("ok"))
 }
 
@@ -137,10 +137,10 @@ func (suite *TestSuite) TestGetDisabledEndpoints_Basic() {
 	app := fiber.New()
 
 	// Define routes
-	app.Get("/api/users/:id", func(c *fiber.Ctx) error { return c.SendString("ok") })
-	app.Post("/api/users/:id", func(c *fiber.Ctx) error { return c.SendString("ok") })
-	app.Delete("/api/items", func(c *fiber.Ctx) error { return c.SendString("ok") })
-	app.Get("/health", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Get("/api/users/:id", func(c fiber.Ctx) error { return c.SendString("ok") })
+	app.Post("/api/users/:id", func(c fiber.Ctx) error { return c.SendString("ok") })
+	app.Delete("/api/items", func(c fiber.Ctx) error { return c.SendString("ok") })
+	app.Get("/health", func(c fiber.Ctx) error { return c.SendString("ok") })
 
 	// Disabled patterns simulate regex-to-path simplification:
 	disabled := &DisabledUrlPatterns{
@@ -162,8 +162,8 @@ func (suite *TestSuite) TestGetDisabledEndpoints_Basic() {
 
 func (suite *TestSuite) TestGetDisabledEndpoints_NoMatches() {
 	app := fiber.New()
-	app.Get("/active", func(c *fiber.Ctx) error { return c.SendString("ok") })
-	app.Post("/something", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Get("/active", func(c fiber.Ctx) error { return c.SendString("ok") })
+	app.Post("/something", func(c fiber.Ctx) error { return c.SendString("ok") })
 
 	disabled := &DisabledUrlPatterns{
 		urlsMap: map[string][]string{
@@ -179,8 +179,8 @@ func (suite *TestSuite) TestGetDisabledEndpoints_NoMatches() {
 func (suite *TestSuite) TestGetDisabledEndpoints_MultipleGroupsAndDupMethods() {
 	app := fiber.New()
 
-	app.Get("/v1/data/:id", func(c *fiber.Ctx) error { return c.SendString("ok") })
-	app.Get("/v2/data/:id", func(c *fiber.Ctx) error { return c.SendString("ok") })
+	app.Get("/v1/data/:id", func(c fiber.Ctx) error { return c.SendString("ok") })
+	app.Get("/v2/data/:id", func(c fiber.Ctx) error { return c.SendString("ok") })
 
 	disabled := &DisabledUrlPatterns{
 		urlsMap: map[string][]string{
