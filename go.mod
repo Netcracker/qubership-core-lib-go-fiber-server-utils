@@ -17,9 +17,9 @@ retract (
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.14
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.5
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.3
-	github.com/netcracker/qubership-core-lib-go/v3 v3.13.1
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.6
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.4
+	github.com/netcracker/qubership-core-lib-go/v3 v3.13.2
 	github.com/openzipkin/zipkin-go v0.4.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
@@ -66,7 +66,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
-	golang.org/x/sync v0.15.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
