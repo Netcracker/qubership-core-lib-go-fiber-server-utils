@@ -32,6 +32,7 @@ func tracingHandler(t *testing.T) (http.HandlerFunc, *bool) {
 		span := spans[0]
 		assert.Equal(t, "service-name-namespace", span.LocalEndpoint.ServiceName)
 		assert.Equal(t, "/test", span.Tags["http.target"])
+		assert.Equal(t, "http", span.Tags["http.scheme"])
 		w.WriteHeader(fiber.StatusOK)
 	})
 	return handler, &gotRequest
@@ -291,6 +292,43 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_TestCaseInsensitivity(t 
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.True(t, *gotRequest)
+}
+
+func TestEnableOtelTracingZipkin_HostAttributes(t *testing.T) {
+	gotRequest := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotRequest = true
+		var spans []zkmodel.SpanModel
+		if err := json.NewDecoder(r.Body).Decode(&spans); err != nil {
+			t.Error(err)
+		}
+		span := spans[0]
+		assert.Equal(t, "localhost", span.Tags["net.host.name"])
+		assert.Equal(t, "10000", span.Tags["net.host.port"])
+		w.WriteHeader(fiber.StatusOK)
+	})
+	server, tracerHost := createTestServer(handler)
+	defer server.Close()
+
+	app := fiber.New()
+	options := createDefaultZipkinOptions(tracerHost)
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
+	assert.Nil(t, err)
+
+	app.Get("/test", func(ctx fiber.Ctx) error {
+		return ctx.SendStatus(fiber.StatusOK)
+	})
+
+	// the URL must carry an explicit port: a relative target makes httptest set Host to
+	// "example.com", and net.host.port then stays unset whether or not the code is correct
+	testRequest, err := http.NewRequest(http.MethodGet, "http://localhost:10000/test", nil)
+	assert.Nil(t, err)
+	resp, err := app.Test(testRequest, fiber.TestConfig{Timeout: 3000 * time.Millisecond})
+	flashBatches(t)
+
+	assert.Nil(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.True(t, gotRequest)
 }
 
 func createTestServer(handler http.HandlerFunc) (*httptest.Server, string) {

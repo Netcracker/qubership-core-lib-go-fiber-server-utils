@@ -52,7 +52,7 @@ func NewOtelTracingMiddleware(serverName string) fiber.Handler {
 			trace.WithAttributes(semconv.HTTPURLKey.String(c.OriginalURL())),
 			trace.WithAttributes(semconv.HTTPUserAgentKey.String(string(c.Request().Header.UserAgent()))),
 			trace.WithAttributes(semconv.HTTPRequestContentLengthKey.Int(c.Request().Header.ContentLength())),
-			trace.WithAttributes(semconv.HTTPSchemeKey.String(c.Protocol())),
+			trace.WithAttributes(semconv.HTTPSchemeKey.String(c.Scheme())),
 			trace.WithAttributes(semconv.HTTPServerNameKey.String(serverName)),
 			trace.WithSpanKind(trace.SpanKindServer),
 		}, remoteServerAttributes(c), hostAttributes(c))
@@ -84,7 +84,7 @@ func hostAttributes(c fiber.Ctx) []trace.SpanStartOption {
 	logger.Debug("Start creating host attributes")
 	options := []trace.SpanStartOption{}
 	hostIP, hostName, hostPort := "", "", 0
-	for _, someHost := range []string{c.Hostname(), string(c.Request().Header.Peek("Host")), string(c.Request().Host())} {
+	for _, someHost := range []string{c.Host(), string(c.Request().Header.Peek("Host")), string(c.Request().Host())} {
 		hostPart := ""
 		if idx := strings.LastIndex(someHost, ":"); idx >= 0 {
 			strPort := someHost[idx+1:]
