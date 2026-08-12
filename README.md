@@ -32,7 +32,7 @@ and create `fiber.App` instance that has all necessary configuration for correct
 
 To get `fiber-server-utils` use
 ```go
- go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2@<latest released version>
+ go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3@<latest released version>
 ```
 
 List of all released versions may be found [here](https://github.com/netcracker/qubership-core-lib-go-fiber-server-utils/tags)
@@ -62,7 +62,7 @@ After properties initialization you should register security implemention - dumm
 ```go
 import (
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
-  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 )
 
 func init() {
@@ -102,10 +102,16 @@ config := fiber.Config{
 app := fiberserver.New(config).Process() // build fiber.App without any cloud-core specific configuration
 ```
 
-> **_NOTE:_**  Default fiber configuration allows working only with IPv4.
-> If you need to use IPv4 and IPv6, add such configuration to app builder initialization
-> 
-> appBuilder, err := fiberserver.New(fiber.Config{Network: fiber.NetworkTCP})
+> **_NOTE:_**  The default listener accepts IPv4 only (`fiber.NetworkTCP4`).
+> If you need both IPv4 and IPv6, set the network when the server starts. In fiber v3 the network moved out of
+> `fiber.Config` into `fiber.ListenConfig`:
+>
+> app.Listen(":8080", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})
+>
+> When you start the server through this library, pass the same `fiber.ListenConfig` to `server.StartServer`
+> or `server.StartServerOnAddress`. It drives both the plain and the TLS listener:
+>
+> server.StartServer(app, "http.server.bind", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})
 
 
 #### WithHealth
@@ -249,15 +255,19 @@ cancel() // graceful shutdown
 based on registered contexts and request data. List of registered contexts can be found [here](https://github.com/netcracker/qubership-core-lib-go/blob/main/context-propagation/README.md#base-contexts) 
  
 
-In order to obtain populated `context.Context` object, you should call `fiber.Ctx#UserContext` method in your handler. For example:
+In order to obtain populated `context.Context` object, you should call `fiber.Ctx#Context` method in your handler. For example:
 ```go
-app.Get("/test", func(ctx *fiber.Ctx) error {
-       ctx := ctx.UserContext()
+app.Get("/test", func(ctx fiber.Ctx) error {
+       ctx := ctx.Context()
        requestId, err := xrequestid.Of(ctx)
        ...
 })
 
 ```
+
+In fiber v3 `fiber.Ctx` itself satisfies `context.Context`, so passing the handler argument straight to a call that
+expects a context compiles. Do not do that: the values populated by this library live in the context returned by
+`fiber.Ctx#Context`, not in `fiber.Ctx`. Always pass `ctx.Context()`.
 
 ### Default error handling
 To comply to REST response in ErrorCode format the following default error handling mechanism is provided via fiber-server-utils/errors/default.go
@@ -265,14 +275,13 @@ To configure your fiber server to provide error response in NC specific TMF form
 
 ```go
 import 	(
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-  fibererrors "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/errors"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+  fibererrors "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/errors"
 )
 // code for all unexpected errors for your microservice/lib must start with corresponding abbreviation followed by digital code 0001 
 // 0001 digital part of the code is reserved specifically for this purpose
 unknownErrorCode := errs.ErrorCode{Code: "YOUR-MS_OR_LIB-0001", Title: "unexpected error"}
 app, err := fiberserver.New(fiber.Config{
-    Network:      fiber.NetworkTCP,
     IdleTimeout:  30 * time.Second,
     ErrorHandler: fibererrors.DefaultErrorHandler(unknownErrorCode),
 }).Process()
@@ -281,7 +290,7 @@ app, err := fiberserver.New(fiber.Config{
 This handler 
 1) allows to process all errors of type error as unknown errors.
 2) provides default handler for all errors which implement github.com/netcracker/qubership-core-lib-go-error-handling/errors.ErrCodeErr interface
-3) provides delegation of handling particular error to its own method - func(ctx *fiber.Ctx) error. See example below:
+3) provides delegation of handling particular error to its own method - func(ctx fiber.Ctx) error. See example below:
    ```go
    import 	(
      errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
@@ -297,11 +306,11 @@ This handler
     return errs.New(CustomErr{CustomField: detail}, errs.ErrorCode{Code:  "custom test error", Title: "custom test title",}, detail)
    }
 
-   func (e *CustomErr) getMeta(ctx *fiber.Ctx) map[string]any {
+   func (e *CustomErr) getMeta(ctx fiber.Ctx) map[string]any {
     return map[string]any{ "custom": e.CustomField }
    }
    
-   func (e *CustomErr) Handle(ctx *fiber.Ctx) error {
+   func (e *CustomErr) Handle(ctx fiber.Ctx) error {
      status := http.StatusBadRequest
      response := tmf.NewResponseBuilder(e).
 		Meta(e.getMeta()).
@@ -319,11 +328,10 @@ provided in application.yaml file.
 
 ```go
 import 	(
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/"
-  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/deprecatedapi"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/"
+  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/deprecatedapi"
 )
 app, err := fiberserver.New(fiber.Config{
-    Network:      fiber.NetworkTCP,
     IdleTimeout:  30 * time.Second,
 // enable DeprecatedApiSwitchedOff feature. Deprecated API will be switched off only when property 'deprecated.api.disabled' = true
 }).WithDeprecatedApiSwitchedOff().Process()
@@ -366,10 +374,10 @@ package main
 import (
   "github.com/netcracker/qubership-core-lib-go/v3/configloader"
   "github.com/netcracker/qubership-core-lib-go/v3/logging"
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
   "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
   "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
-  "github.com/gofiber/fiber/v2"
+  "github.com/gofiber/fiber/v3"
   "time"
 )
 
@@ -400,14 +408,14 @@ func main() {
   app.Listen(":8080")
 }
 
-func fooHandler(ctx *fiber.Ctx) error  {
-  userCtx := ctx.UserContext()
+func fooHandler(ctx fiber.Ctx) error  {
+  userCtx := ctx.Context()
   // ...
   return nil
 }
 
-func customHandler(ctx *fiber.Ctx) error  {
-  userCtx := ctx.UserContext()
+func customHandler(ctx fiber.Ctx) error  {
+  userCtx := ctx.Context()
   // ...
   return nil
 }
