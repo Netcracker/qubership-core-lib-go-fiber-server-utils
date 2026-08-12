@@ -128,7 +128,11 @@ func (suite *TestSuite) TestFiberBuilderPprof() {
 
 	assert.Equal(suite.T(), err, nil)
 
-	pprofResp, _ := http.Get(fmt.Sprintf("http://localhost:%d/debug/pprof/", port))
+	// WithPprof starts the pprof server in a goroutine, so the listener may not be up yet
+	waitForPort(suite.T(), port)
+
+	pprofResp, err := http.Get(fmt.Sprintf("http://localhost:%d/debug/pprof/", port))
+	require.Nil(suite.T(), err)
 	assert.Equal(suite.T(), fiber.StatusOK, pprofResp.StatusCode)
 }
 
@@ -426,8 +430,12 @@ func getFreePort() (int, error) {
 }
 
 func listenAndWaitForPort(t *testing.T, app *fiber.App, port int) {
+	go app.Listen(":" + strconv.Itoa(port))
+	waitForPort(t, port)
+}
+
+func waitForPort(t *testing.T, port int) {
 	portString := strconv.Itoa(port)
-	go app.Listen(":" + portString)
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+portString, 100*time.Millisecond)
