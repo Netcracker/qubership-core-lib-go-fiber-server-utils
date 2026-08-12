@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/test"
+	"github.com/gofiber/fiber/v3"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/test"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -37,8 +37,8 @@ func TestExampleTestSuite(t *testing.T) {
 }
 
 func (suite *TestSuite) TestStartServer() {
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
-	app.Get("/test", func(ctx *fiber.Ctx) error {
+	app := fiber.New()
+	app.Get("/test", func(ctx fiber.Ctx) error {
 		return ctx.Status(fiber.StatusOK).SendString("I'm test handler!!!")
 	})
 	go func() {
