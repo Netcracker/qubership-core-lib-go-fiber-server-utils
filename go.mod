@@ -17,9 +17,9 @@ retract (
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.14
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.6
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.4
-	github.com/netcracker/qubership-core-lib-go/v3 v3.13.2
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.9
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.7
+	github.com/netcracker/qubership-core-lib-go/v3 v3.13.5
 	github.com/openzipkin/zipkin-go v0.4.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
