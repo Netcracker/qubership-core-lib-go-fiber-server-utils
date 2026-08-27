@@ -170,8 +170,9 @@ app := fiberserver.New()
 ```
 
 #### WithTracer
-Method `WithTracer(exporter OpenTelemetryExporter)` adds tracing to service. Tracer allows to trace requests. Supports `B3` headers.
+Method `WithTracer(exporter OpenTelemetryExporter, opts ...TracerOption)` adds tracing to service. Tracer allows to trace requests. Supports `B3` headers.
 * Param `exporter`, _tracing.OpenTelemetryExporter_ is an interface that returns tracing provider. Out of the box, we provide `Zipkin tracer`.
+* Optional `SkipTracing("/path", ...)` marks additional routes that must not create spans. Paths registered by the builder itself (`WithHealth`, `WithPrometheus`, `WithApiVersion`, `WithLogLevelsInfo`) are skipped automatically.
 
 There are two ways to initiate `zipkinTracer`:
 * Use `tracing.NewZipkinTracer()` to use configuration with environment parameters. 
@@ -184,7 +185,7 @@ chooses configuration with `tracing.NewZipkinTracerWithOpts(zipkinOptions Zipkin
 |---|---|---|---|
 |tracing.enabled  | Enable or disable tracing (to switch on/off without changing other params) | false | true/false|
 |tracing.host     | Zipkin host server, without port and protocol | -- | any string, for example nc-diagnostic-agent
-|tracing.sampler.const    | sampler always makes the same decision for all traces. It either samples all traces (value=1) or none of them (value=0). | 1 | 0 or 1
+|tracing.sampler.ratelimiting | max traces per second (rate limiting sampler) | 10 | positive integer |
 |microservice.name    | microservice name | -- | any string, for example tenant-manager
 
 > **_NOTE:_**  If you set tracing.enabled=true but leave tracing.host empty, then you'll get an error. Also, if you'll specify tracing.host=some value,
@@ -199,9 +200,16 @@ TRACING_ENABLED=true
 TRACING_HOST=nc-diagnostic-agent
 ```
 ```go
-app := fiberserver.New()
-    .WithTracer(tracing.NewZipkinTracer())
-	.Process() // build fiber.App with zipkin tracer enabled
+app := fiberserver.New().
+    WithTracer(tracing.NewZipkinTracer()).
+	Process() // build fiber.App with zipkin tracer enabled
+```
+
+Skip custom probes:
+```go
+app := fiberserver.New().
+    WithTracer(tracing.NewZipkinTracer(), fiberserver.SkipTracing("/health", "/ready")).
+	Process()
 ```
 
 With direct configuration:
@@ -213,9 +221,9 @@ options := tracing.ZipkinOptions{
 		ServiceName:                "service-name",
 		Namespace:                  "namespace",
 }
-app := fiberserver.New()
-    .WithTracer(tracing.NewZipkinTracerWithOpts(options))
-	.Process() // build fiber.App with zipkin tracer enabled
+app := fiberserver.New().
+    WithTracer(tracing.NewZipkinTracerWithOpts(options)).
+	Process() // build fiber.App with zipkin tracer enabled
 ``` 
 
 #### WithLogLevelsInfo
