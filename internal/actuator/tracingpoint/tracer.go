@@ -21,6 +21,8 @@ const (
 	tracerName = "qubership.org/otelfiber"
 )
 
+var defaultUntracedPathPrefixes = []string{"/static"}
+
 var (
 	logger       logging.Logger
 	b3Propagator = b3.New(b3.WithInjectEncoding(b3.B3MultipleHeader | b3.B3SingleHeader))
@@ -88,14 +90,28 @@ func NewOtelTracingMiddleware(serverName string, untraced map[string]struct{}) f
 // Prefer c.Path() because global app.Use middleware often sees c.Route().Path as "/" / "/*"
 // before the concrete route is bound; also accept Route().Path for matched templates.
 func shouldSkipTracing(c *fiber.Ctx, untraced map[string]struct{}) bool {
-	if len(untraced) == 0 {
-		return false
+	for _, path := range requestPaths(c) {
+		if hasUntracedPrefix(path) {
+			return true
+		}
+		if _, skip := untraced[path]; skip {
+			return true
+		}
 	}
-	if _, skip := untraced[c.Path()]; skip {
-		return true
+	return false
+}
+
+func requestPaths(c *fiber.Ctx) []string {
+	paths := []string{c.Path()}
+	if route := c.Route(); route != nil && route.Path != "" {
+		paths = append(paths, route.Path)
 	}
-	if route := c.Route(); route != nil {
-		if _, skip := untraced[route.Path]; skip {
+	return paths
+}
+
+func hasUntracedPrefix(path string) bool {
+	for _, prefix := range defaultUntracedPathPrefixes {
+		if strings.HasPrefix(path, prefix) {
 			return true
 		}
 	}

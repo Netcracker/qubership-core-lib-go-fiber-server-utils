@@ -205,18 +205,6 @@ func (builder *Builder) enableActuatorEndpoints(app *fiber.App) error {
 	for path := range builder.skipTracingPaths {
 		untraced[path] = struct{}{}
 	}
-	if builder.health != nil {
-		untraced[builder.health.url] = struct{}{}
-	}
-	if builder.prometheusURL != "" {
-		untraced[builder.prometheusURL] = struct{}{}
-	}
-	if builder.apiVersionService != nil {
-		untraced["/api-version"] = struct{}{}
-	}
-	if builder.logLevelService != nil {
-		untraced["/api/logging/v1/levels"] = struct{}{}
-	}
 
 	if builder.pprofPort != "" {
 		pprofpoint.EnablePprofOnPort(builder.pprofPort)
@@ -229,19 +217,25 @@ func (builder *Builder) enableActuatorEndpoints(app *fiber.App) error {
 		}
 	}
 	if builder.health != nil {
-		app.Get(builder.health.url, healthpoint.EnableHealth(builder.health.healthService.Start()))
+		registerUntraced(app, untraced, builder.health.url, healthpoint.EnableHealth(builder.health.healthService.Start()))
 	}
 	if builder.prometheusURL != "" {
+		untraced[builder.prometheusURL] = struct{}{}
 		err := monitorpoint.EnablePrometheus(builder.prometheusURL, &builder.prometheusConfig, app)
 		if err != nil {
 			return err
 		}
 	}
 	if builder.apiVersionService != nil {
-		app.Get("/api-version", apiversionpoint.EnableApiVersion(builder.apiVersionService))
+		registerUntraced(app, untraced, "/api-version", apiversionpoint.EnableApiVersion(builder.apiVersionService))
 	}
 	if builder.logLevelService != nil {
-		app.Get("/api/logging/v1/levels", loglevelpoint.EnableLogLevel(builder.logLevelService))
+		registerUntraced(app, untraced, "/api/logging/v1/levels", loglevelpoint.EnableLogLevel(builder.logLevelService))
 	}
 	return nil
+}
+
+func registerUntraced(app *fiber.App, untraced map[string]struct{}, path string, h fiber.Handler) {
+	untraced[path] = struct{}{}
+	app.Get(path, h)
 }

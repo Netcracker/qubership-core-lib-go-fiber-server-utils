@@ -347,6 +347,20 @@ func TestShouldSkipTracing(t *testing.T) {
 	assert.False(t, skipped)
 }
 
+func TestShouldSkipTracingStaticPrefix(t *testing.T) {
+	app := fiber.New()
+	var skipped bool
+	app.Use(func(c *fiber.Ctx) error {
+		skipped = shouldSkipTracing(c, nil)
+		return c.Next()
+	})
+	app.Get("/static/*", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
+
+	_, err := app.Test(httptest.NewRequest("GET", "/static/app.js", nil))
+	assert.Nil(t, err)
+	assert.True(t, skipped)
+}
+
 func createTestServer(handler http.HandlerFunc) (*httptest.Server, string) {
 	server := httptest.NewUnstartedServer(handler)
 	tracerHost := "127.0.0.1"
