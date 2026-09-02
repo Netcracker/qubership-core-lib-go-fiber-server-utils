@@ -62,7 +62,7 @@ func TestEnableOtelTracingZipkin_WithDefault(t *testing.T) {
 	configloader.InitWithSourcesArray([]*configloader.PropertySource{configloader.EnvPropertySource()})
 
 	app := fiber.New()
-	err := EnableOtelTracing(tracing.NewZipkinTracer(), app)
+	err := EnableOtelTracing(tracing.NewZipkinTracer(), app, nil)
 	assert.Nil(t, err)
 	app.Get("/test", func(ctx *fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
@@ -80,7 +80,7 @@ func TestEnableOtelTracingZipkin_WithOptions(t *testing.T) {
 
 	app := fiber.New()
 	options := createDefaultZipkinOptions(tracerHost)
-	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app, nil)
 	assert.Nil(t, err)
 	app.Get("/test", func(ctx *fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
@@ -98,7 +98,7 @@ func TestEnableOtelTracingZipkin_B3_WithoutHeader(t *testing.T) {
 
 	app := fiber.New()
 	options := createDefaultZipkinOptions(tracerHost)
-	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app, nil)
 	assert.Nil(t, err)
 
 	app.Get("/test", func(ctx *fiber.Ctx) error {
@@ -124,7 +124,7 @@ func TestEnableOtelTracingZipkin_B3_WithSingleHeader(t *testing.T) {
 
 	app := fiber.New()
 	options := createDefaultZipkinOptions(tracerHost)
-	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app, nil)
 	assert.Nil(t, err)
 
 	b3TraceIdValue := "80f198ee56343ba864fe8b2a57d3eff7"
@@ -158,7 +158,7 @@ func TestEnableOtelTracingZipkin_B3_WithSingleHeader_BadTraceId(t *testing.T) {
 
 	app := fiber.New()
 	options := createDefaultZipkinOptions(tracerHost)
-	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app, nil)
 	assert.Nil(t, err)
 
 	b3TraceIdValue := "80f198ee56343ba864fe8b2a5mangled"
@@ -193,7 +193,7 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders(t *testing.T) {
 
 	app := fiber.New()
 	options := createDefaultZipkinOptions(tracerHost)
-	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app, nil)
 	assert.Nil(t, err)
 
 	b3TraceIdValue := "80f198ee56343ba864fe8b2a57d3eff7"
@@ -225,7 +225,7 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_BadTraceId(t *testing.T)
 
 	app := fiber.New()
 	options := createDefaultZipkinOptions(tracerHost)
-	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app, nil)
 	assert.Nil(t, err)
 
 	b3TraceIdValue := "80f198ee56343ba"
@@ -260,7 +260,7 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_TestCaseInsensitivity(t 
 
 	app := fiber.New()
 	options := createDefaultZipkinOptions(tracerHost)
-	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app)
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app, nil)
 	assert.Nil(t, err)
 
 	b3TraceIdValue := "80f198ee56343ba864fe8b2a57d3eff7"
@@ -290,6 +290,75 @@ func TestEnableOtelTracingZipkin_B3_WithMultipleHeaders_TestCaseInsensitivity(t 
 	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.True(t, *gotRequest)
+}
+
+func TestEnableOtelTracingZipkin_SkipsUntracedPaths(t *testing.T) {
+	handler, gotRequest := tracingHandler(t)
+	server, tracerHost := createTestServer(handler)
+	defer server.Close()
+
+	app := fiber.New()
+	options := createDefaultZipkinOptions(tracerHost)
+	untraced := map[string]struct{}{"/health": {}, "/api-version": {}}
+	err := EnableOtelTracing(tracing.NewZipkinTracerWithOpts(options), app, untraced)
+	assert.Nil(t, err)
+
+	app.Get("/health", func(ctx *fiber.Ctx) error {
+		sc := trace.SpanContextFromContext(ctx.UserContext())
+		assert.False(t, sc.IsValid())
+		return ctx.SendStatus(fiber.StatusOK)
+	})
+	app.Get("/api-version", func(ctx *fiber.Ctx) error {
+		sc := trace.SpanContextFromContext(ctx.UserContext())
+		assert.False(t, sc.IsValid())
+		return ctx.SendStatus(fiber.StatusOK)
+	})
+	app.Get("/test", func(ctx *fiber.Ctx) error {
+		return ctx.SendStatus(fiber.StatusOK)
+	})
+
+	_, err = app.Test(httptest.NewRequest("GET", "/health", nil))
+	assert.Nil(t, err)
+	_, err = app.Test(httptest.NewRequest("GET", "/api-version", nil))
+	assert.Nil(t, err)
+	_, err = app.Test(httptest.NewRequest("GET", "/test", nil))
+	flashBatches(t)
+	assert.Nil(t, err)
+	assert.True(t, *gotRequest)
+}
+
+func TestShouldSkipTracing(t *testing.T) {
+	app := fiber.New()
+	untraced := map[string]struct{}{"/health": {}, "/ready": {}}
+	var skipped bool
+	app.Use(func(c *fiber.Ctx) error {
+		skipped = shouldSkipTracing(c, untraced)
+		return c.Next()
+	})
+	app.Get("/health", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
+	app.Get("/api", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
+
+	_, err := app.Test(httptest.NewRequest("GET", "/health", nil))
+	assert.Nil(t, err)
+	assert.True(t, skipped)
+
+	_, err = app.Test(httptest.NewRequest("GET", "/api", nil))
+	assert.Nil(t, err)
+	assert.False(t, skipped)
+}
+
+func TestShouldSkipTracingStaticPrefix(t *testing.T) {
+	app := fiber.New()
+	var skipped bool
+	app.Use(func(c *fiber.Ctx) error {
+		skipped = shouldSkipTracing(c, nil)
+		return c.Next()
+	})
+	app.Get("/static/*", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
+
+	_, err := app.Test(httptest.NewRequest("GET", "/static/app.js", nil))
+	assert.Nil(t, err)
+	assert.True(t, skipped)
 }
 
 func createTestServer(handler http.HandlerFunc) (*httptest.Server, string) {

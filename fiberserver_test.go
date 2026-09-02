@@ -132,6 +132,16 @@ func (suite *TestSuite) TestFiberBuilderPprof() {
 	assert.Equal(suite.T(), fiber.StatusOK, pprofResp.StatusCode)
 }
 
+func (suite *TestSuite) TestFiberBuilderSkipTracingOption() {
+	builder := New().WithTracer(
+		tracing.NewZipkinTracerWithOpts(tracing.ZipkinOptions{}),
+		SkipTracing("/health", "/ready", ""),
+	)
+	assert.Contains(suite.T(), builder.skipTracingPaths, "/health")
+	assert.Contains(suite.T(), builder.skipTracingPaths, "/ready")
+	assert.NotContains(suite.T(), builder.skipTracingPaths, "")
+}
+
 func (suite *TestSuite) TestFiberBuilderHealth() {
 	healthService, err := health.NewHealthService()
 	assert.Nil(suite.T(), err)

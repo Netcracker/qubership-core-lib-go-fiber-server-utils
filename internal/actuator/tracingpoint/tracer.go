@@ -21,6 +21,8 @@ const (
 	tracerName = "qubership.org/otelfiber"
 )
 
+var defaultUntracedPathPrefixes = []string{"/static"}
+
 var (
 	logger       logging.Logger
 	b3Propagator = b3.New(b3.WithInjectEncoding(b3.B3MultipleHeader | b3.B3SingleHeader))
@@ -30,7 +32,7 @@ func init() {
 	logger = logging.GetLogger("fibertracing")
 }
 
-func EnableOtelTracing(exporter tracing.OpenTelemetryExporter, app *fiber.App) error {
+func EnableOtelTracing(exporter tracing.OpenTelemetryExporter, app *fiber.App, untraced map[string]struct{}) error {
 	logger.Debug("Going to enable otel tracing")
 	isRegistered, err := exporter.RegisterTracerProvider()
 	if err != nil {
@@ -38,13 +40,17 @@ func EnableOtelTracing(exporter tracing.OpenTelemetryExporter, app *fiber.App) e
 		return err
 	}
 	if isRegistered {
-		app.Use(NewOtelTracingMiddleware(exporter.ServerName()))
+		app.Use(NewOtelTracingMiddleware(exporter.ServerName(), untraced))
 	}
 	return nil
 }
 
-func NewOtelTracingMiddleware(serverName string) fiber.Handler {
+func NewOtelTracingMiddleware(serverName string, untraced map[string]struct{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		if shouldSkipTracing(c, untraced) {
+			return c.Next()
+		}
+
 		spanOptions := concatSpanStartOptions([]trace.SpanStartOption{
 			trace.WithAttributes(semconv.HTTPMethodKey.String(c.Method())),
 			trace.WithAttributes(semconv.HTTPTargetKey.String(string(c.Request().RequestURI()))),
@@ -78,6 +84,38 @@ func NewOtelTracingMiddleware(serverName string) fiber.Handler {
 
 		return err
 	}
+}
+
+// shouldSkipTracing reports whether the current request path is excluded from tracing.
+// Prefer c.Path() because global app.Use middleware often sees c.Route().Path as "/" / "/*"
+// before the concrete route is bound; also accept Route().Path for matched templates.
+func shouldSkipTracing(c *fiber.Ctx, untraced map[string]struct{}) bool {
+	for _, path := range requestPaths(c) {
+		if hasUntracedPrefix(path) {
+			return true
+		}
+		if _, skip := untraced[path]; skip {
+			return true
+		}
+	}
+	return false
+}
+
+func requestPaths(c *fiber.Ctx) []string {
+	paths := []string{c.Path()}
+	if route := c.Route(); route != nil && route.Path != "" {
+		paths = append(paths, route.Path)
+	}
+	return paths
+}
+
+func hasUntracedPrefix(path string) bool {
+	for _, prefix := range defaultUntracedPathPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func hostAttributes(c *fiber.Ctx) []trace.SpanStartOption {

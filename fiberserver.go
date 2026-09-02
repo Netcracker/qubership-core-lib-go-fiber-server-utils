@@ -39,6 +39,7 @@ type Builder struct {
 	prometheusURL          string
 	prometheusConfig       monitoring.Config
 	exporter               tracing.OpenTelemetryExporter
+	skipTracingPaths       map[string]struct{}
 	switchOffDeprecatedApi bool
 	logLevelService        loglevel.LogLevelService
 }
@@ -46,6 +47,22 @@ type Builder struct {
 type builderHealth struct {
 	url           string
 	healthService health.HealthService
+}
+
+type TracerOption func(*Builder)
+
+func SkipTracing(paths ...string) TracerOption {
+	return func(builder *Builder) {
+		if builder.skipTracingPaths == nil {
+			builder.skipTracingPaths = make(map[string]struct{}, len(paths))
+		}
+		for _, path := range paths {
+			if path == "" {
+				continue
+			}
+			builder.skipTracingPaths[path] = struct{}{}
+		}
+	}
 }
 
 func New(config ...fiber.Config) *Builder {
@@ -67,9 +84,12 @@ func (builder *Builder) WithPrometheus(url string, config ...monitoring.Config) 
 	return builder
 }
 
-func (builder *Builder) WithTracer(exporter tracing.OpenTelemetryExporter) *Builder {
+func (builder *Builder) WithTracer(exporter tracing.OpenTelemetryExporter, opts ...TracerOption) *Builder {
 	logger.Debug("tracer will be enabled")
 	builder.exporter = exporter
+	for _, opt := range opts {
+		opt(builder)
+	}
 	return builder
 }
 
@@ -181,29 +201,41 @@ func responseEnricher() fiber.Handler {
 }
 
 func (builder *Builder) enableActuatorEndpoints(app *fiber.App) error {
-	if builder.health != nil {
-		app.Get(builder.health.url, healthpoint.EnableHealth(builder.health.healthService.Start()))
+	untraced := make(map[string]struct{})
+	for path := range builder.skipTracingPaths {
+		untraced[path] = struct{}{}
 	}
+
 	if builder.pprofPort != "" {
 		pprofpoint.EnablePprofOnPort(builder.pprofPort)
 	}
+
+	if builder.exporter != nil {
+		err := tracingpoint.EnableOtelTracing(builder.exporter, app, untraced)
+		if err != nil {
+			return err
+		}
+	}
+	if builder.health != nil {
+		registerUntraced(app, untraced, builder.health.url, healthpoint.EnableHealth(builder.health.healthService.Start()))
+	}
 	if builder.prometheusURL != "" {
+		untraced[builder.prometheusURL] = struct{}{}
 		err := monitorpoint.EnablePrometheus(builder.prometheusURL, &builder.prometheusConfig, app)
 		if err != nil {
 			return err
 		}
 	}
-	if builder.exporter != nil {
-		err := tracingpoint.EnableOtelTracing(builder.exporter, app)
-		if err != nil {
-			return err
-		}
-	}
 	if builder.apiVersionService != nil {
-		app.Get("/api-version", apiversionpoint.EnableApiVersion(builder.apiVersionService))
+		registerUntraced(app, untraced, "/api-version", apiversionpoint.EnableApiVersion(builder.apiVersionService))
 	}
 	if builder.logLevelService != nil {
-		app.Get("/api/logging/v1/levels", loglevelpoint.EnableLogLevel(builder.logLevelService))
+		registerUntraced(app, untraced, "/api/logging/v1/levels", loglevelpoint.EnableLogLevel(builder.logLevelService))
 	}
 	return nil
+}
+
+func registerUntraced(app *fiber.App, untraced map[string]struct{}, path string, h fiber.Handler) {
+	untraced[path] = struct{}{}
+	app.Get(path, h)
 }

@@ -170,8 +170,46 @@ app := fiberserver.New()
 ```
 
 #### WithTracer
-Method `WithTracer(exporter OpenTelemetryExporter)` adds tracing to service. Tracer allows to trace requests. Supports `B3` headers.
-* Param `exporter`, _tracing.OpenTelemetryExporter_ is an interface that returns tracing provider. Out of the box, we provide `Zipkin tracer`.
+Method `WithTracer(exporter OpenTelemetryExporter, opts ...TracerOption)` adds tracing to service. Tracer allows to trace requests. Supports `B3` headers.
+* Param `exporter`, _tracing.OpenTelemetryExporter_ is an interface that returns tracing provider. Out of the box, we provide `Zipkin tracer` from `qubership-core-lib-go-actuator-common`.
+* Optional `SkipTracing("/path", ...)` marks additional exact paths that must not create spans (for example service-owned probes registered outside the builder).
+
+##### Skipping probe and actuator paths (why it lives here)
+
+Previously `RateLimitingSampler` in `actuator-common` dropped some HTTP paths inside the OpenTelemetry sampler (`/health`, `/static` prefix, and later a hardcoded list in a path-filtering sampler experiment). That approach had several problems:
+
+* The skip list could diverge from routes actually registered by the Fiber builder (extra k8s probe paths, missing `/api/logging/v1/levels`, and so on).
+* Filtering happened **after** the middleware had already built span attributes (`ParseIP`, headers, and so on), so excluded requests still paid that cost.
+* Using `Drop` in the sampler can break an already-sampled parent trace (B3); skipping in middleware simply does not create a server span and leaves the incoming context unchanged.
+* Zipkin/sampler configuration is the wrong extension point: span creation happens in this library's `tracingpoint` middleware, not in the exporter.
+
+Path filtering was therefore **removed from actuator-common**. That library now only registers the Zipkin exporter and applies the rate limit in `RateLimitingSampler`. All path-based exclusions are handled here, in Fiber middleware, **before** `tracer.Start(...)`.
+
+##### How span skipping works now
+
+When `Process()` runs, the builder:
+
+1. Collects an `untraced` map (exact paths only).
+2. Registers the OTel tracing middleware first (so later routes pass through it).
+3. Adds each enabled actuator route to `untraced` at registration time (`registerUntraced` or an explicit map entry for Prometheus).
+
+On each request the middleware calls `shouldSkipTracing`:
+
+* **Exact path** — request path (`c.Path()`) or matched route template (`c.Route().Path`) is in `untraced` → `return c.Next()` with no span.
+* **Prefix** — path starts with `/static` (platform default carried over from the old sampler behaviour) → no span.
+* Otherwise a server span is created, exported via the Zipkin tracer from actuator-common, and subject only to **rate limiting** in the sampler (default 10 traces/sec).
+
+Paths skipped automatically when the corresponding builder method is used:
+
+| Builder | Path added to skip list |
+|---|---|
+| `WithHealth(url, ...)` | `url` |
+| `WithPrometheus(url, ...)` | `url` |
+| `WithApiVersion()` | `/api-version` |
+| `WithLogLevelsInfo()` | `/api/logging/v1/levels` |
+| (always) | any path with prefix `/static` |
+
+Service-specific probes that you register on the returned `fiber.App` after `Process()` (for example `app.Get("/ready", ...)`) are **not** added automatically — pass them via `SkipTracing`.
 
 There are two ways to initiate `zipkinTracer`:
 * Use `tracing.NewZipkinTracer()` to use configuration with environment parameters. 
@@ -184,7 +222,7 @@ chooses configuration with `tracing.NewZipkinTracerWithOpts(zipkinOptions Zipkin
 |---|---|---|---|
 |tracing.enabled  | Enable or disable tracing (to switch on/off without changing other params) | false | true/false|
 |tracing.host     | Zipkin host server, without port and protocol | -- | any string, for example nc-diagnostic-agent
-|tracing.sampler.const    | sampler always makes the same decision for all traces. It either samples all traces (value=1) or none of them (value=0). | 1 | 0 or 1
+|tracing.sampler.ratelimiting | max traces per second (rate limiting sampler) | 10 | positive integer |
 |microservice.name    | microservice name | -- | any string, for example tenant-manager
 
 > **_NOTE:_**  If you set tracing.enabled=true but leave tracing.host empty, then you'll get an error. Also, if you'll specify tracing.host=some value,
@@ -199,9 +237,16 @@ TRACING_ENABLED=true
 TRACING_HOST=nc-diagnostic-agent
 ```
 ```go
-app := fiberserver.New()
-    .WithTracer(tracing.NewZipkinTracer())
-	.Process() // build fiber.App with zipkin tracer enabled
+app := fiberserver.New().
+    WithTracer(tracing.NewZipkinTracer()).
+	Process() // build fiber.App with zipkin tracer enabled
+```
+
+Skip custom probes:
+```go
+app := fiberserver.New().
+    WithTracer(tracing.NewZipkinTracer(), fiberserver.SkipTracing("/health", "/ready")).
+	Process()
 ```
 
 With direct configuration:
@@ -213,9 +258,9 @@ options := tracing.ZipkinOptions{
 		ServiceName:                "service-name",
 		Namespace:                  "namespace",
 }
-app := fiberserver.New()
-    .WithTracer(tracing.NewZipkinTracerWithOpts(options))
-	.Process() // build fiber.App with zipkin tracer enabled
+app := fiberserver.New().
+    WithTracer(tracing.NewZipkinTracerWithOpts(options)).
+	Process() // build fiber.App with zipkin tracer enabled
 ``` 
 
 #### WithLogLevelsInfo
