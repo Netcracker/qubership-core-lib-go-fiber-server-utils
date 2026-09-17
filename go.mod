@@ -24,7 +24,7 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/client_model v0.6.2
 	github.com/stretchr/testify v1.12.1
-	github.com/valyala/fasthttp v1.74.0
+	github.com/valyala/fasthttp v1.73.0
 	github.com/vibrantbyte/go-antpath v1.1.1
 	go.opentelemetry.io/contrib/propagators/b3 v1.46.0
 	go.opentelemetry.io/otel v1.46.0
@@ -33,6 +33,7 @@ require (
 )
 
 require (
+	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
@@ -51,7 +52,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/molecule-man/go-brrr v1.0.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
