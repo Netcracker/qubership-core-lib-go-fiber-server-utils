@@ -1,8 +1,8 @@
 package pprofpoint
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/pprof"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/server"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
