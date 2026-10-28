@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
