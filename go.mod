@@ -17,9 +17,9 @@ retract (
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.16
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.3
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.4
-	github.com/netcracker/qubership-core-lib-go/v3 v3.15.2
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.4
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.5
+	github.com/netcracker/qubership-core-lib-go/v3 v3.15.3
 	github.com/openzipkin/zipkin-go v0.4.3
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
@@ -45,7 +45,7 @@ require (
 	github.com/knadh/koanf/parsers/yaml v1.1.1 // indirect
 	github.com/knadh/koanf/providers/env/v2 v2.0.2 // indirect
 	github.com/knadh/koanf/providers/file v1.2.1 // indirect
-	github.com/knadh/koanf/v2 v2.3.8 // indirect
+	github.com/knadh/koanf/v2 v2.4.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
