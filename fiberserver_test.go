@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/apiversion"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
