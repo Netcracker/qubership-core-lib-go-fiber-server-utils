@@ -26,4 +26,5 @@ func TestEnableHealth(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, expectedHealthResponse, string(body))
 	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 }

@@ -26,6 +26,7 @@ func TestEnableApiVersion(t *testing.T) {
 	assert.True(t, strings.Contains(string(body), "bluegreen"))
 	logger.Infof("%s", string(body))
 	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 }
 
 func TestEnableApiVersionError(t *testing.T) {

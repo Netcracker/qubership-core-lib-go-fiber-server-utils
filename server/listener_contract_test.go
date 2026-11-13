@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -62,13 +63,31 @@ func TestStartServerOnAddressListenerContract(t *testing.T) {
 			}
 			utils.SetTlsEnabled(tc.tls)
 			app := fiber.New()
-			app.Get("/ready", func(c fiber.Ctx) error { return c.SendString("ready") })
+			entered := make(chan struct{})
+			release := make(chan struct{})
+			releaseRequest := sync.OnceFunc(func() { close(release) })
+			app.Get("/ready", func(c fiber.Ctx) error {
+				close(entered)
+				<-release
+				return c.SendString("ready")
+			})
 			ready := make(chan fiber.ListenData, 1)
 			app.Hooks().OnListen(func(data fiber.ListenData) error { ready <- data; return nil })
+			stopping := make(chan struct{}, 1)
+			app.Hooks().OnPreShutdown(func() error {
+				select {
+				case stopping <- struct{}{}:
+				default:
+				}
+				return nil
+			})
 			done := make(chan struct{})
 			ctx, cancel := context.WithCancel(context.Background())
 			t.Cleanup(cancel)
-			t.Cleanup(func() { assert.NoError(t, app.ShutdownWithTimeout(3*time.Second)) })
+			t.Cleanup(func() {
+				releaseRequest()
+				assert.NoError(t, app.ShutdownWithTimeout(3*time.Second))
+			})
 			go func() {
 				defer close(done)
 				address := net.JoinHostPort(tc.host, "0")
@@ -96,7 +115,34 @@ func TestStartServerOnAddressListenerContract(t *testing.T) {
 			transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
 			defer transport.CloseIdleConnections()
 			client := &http.Client{Transport: transport, Timeout: 3 * time.Second}
-			resp, err := client.Get(scheme + "://" + net.JoinHostPort(tc.host, listening.Port) + "/ready")
+			type result struct {
+				response *http.Response
+				err      error
+			}
+			responses := make(chan result, 1)
+			go func() {
+				resp, err := client.Get(scheme + "://" + net.JoinHostPort(tc.host, listening.Port) + "/ready")
+				responses <- result{response: resp, err: err}
+			}()
+			select {
+			case <-entered:
+			case <-time.After(5 * time.Second):
+				t.Fatal("request did not reach the handler within 5 s")
+			}
+			shutdownErr := make(chan error, 1)
+			if tc.network == "" {
+				go func() { shutdownErr <- app.ShutdownWithTimeout(3 * time.Second) }()
+			} else {
+				cancel()
+			}
+			select {
+			case <-stopping:
+			case <-time.After(5 * time.Second):
+				t.Fatal("shutdown did not begin within 5 s while the request was active")
+			}
+			releaseRequest()
+			got := <-responses
+			resp, err := got.response, got.err
 			require.NoError(t, err)
 			defer resp.Body.Close()
 			body, err := io.ReadAll(resp.Body)
@@ -108,9 +154,7 @@ func TestStartServerOnAddressListenerContract(t *testing.T) {
 				assert.NotEmpty(t, resp.TLS.VerifiedChains)
 			}
 			if tc.network == "" {
-				require.NoError(t, app.ShutdownWithTimeout(3*time.Second))
-			} else {
-				cancel()
+				require.NoError(t, <-shutdownErr)
 			}
 			select {
 			case <-done:
