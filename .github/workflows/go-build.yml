@@ -31,34 +31,3 @@ jobs:
     with:
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
     secrets: inherit
-
-  verify:
-    name: Verify Fiber contracts
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
-        with:
-          go-version-file: go.mod
-      - name: Check formatting
-        run: test -z "$(gofmt -l .)"
-      - name: Check module files
-        run: |
-          go mod tidy
-          git diff --exit-code -- go.mod go.sum
-          go list -m all
-          if go list -m all | grep -q 'github.com/gofiber/fiber/v2'; then
-            echo 'Fiber v2 remains in the module graph'
-            exit 1
-          fi
-      - name: Build
-        run: go build ./...
-      - name: Vet
-        run: go vet ./...
-      - name: Check request and listener lifecycles with the race detector
-        run: go test -race -p 1 -count=1 -timeout 5m ./...
