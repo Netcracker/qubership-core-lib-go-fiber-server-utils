@@ -31,40 +31,88 @@ and create `fiber.App` instance that has all necessary configuration for correct
 
 ## Install
 
-This module requires Go 1.26.5 or later and uses Fiber 3.7.0.
-Select a v3 tag, pseudo-version, or commit:
+Server-utils v3 requires Go 1.26.5 or later and uses Fiber 3.7.0.
+To install the Qubership library, replace `<server-utils-version>` with its tag, pseudo-version, or commit:
 
 ```shell
-go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3@<version>
+go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3@<server-utils-version>
 ```
 
 List of all released versions may be found [here](https://github.com/netcracker/qubership-core-lib-go-fiber-server-utils/tags)
 
 ## Upgrade from v2
 
-The `/v3` module exposes Fiber v3 types and is source-incompatible with `/v2`.
-Update every Go module that uses the library, including test modules.
+These instructions are for applications using `qubership-core-lib-go-fiber-server-utils/v2` with Fiber v2.
+The upgrade changes two Go modules: the Qubership library moves to `/v3`, and the Fiber framework moves
+to `github.com/gofiber/fiber/v3`. The Qubership library needs a new major version because its public
+server, security, and error-handling APIs expose Fiber types.
 
-| v2 API | v3 API |
-|---|---|
-| `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2` | `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3` |
-| `github.com/gofiber/fiber/v2` | `github.com/gofiber/fiber/v3` |
-| `*fiber.Ctx` in handlers, security middleware, and custom error `Handle` methods | `fiber.Ctx` |
-| `c.UserContext()` / `c.SetUserContext(ctx)` | `c.Context()` / `c.SetContext(ctx)` |
-| `c.Context()` for the fasthttp request | `c.RequestCtx()` |
-| `fiber.Config.Network` and `DisableStartupMessage` | `fiber.ListenConfig.ListenerNetwork` and `DisableStartupMessage` |
-| `c.Protocol()` for http/https | `c.Scheme()`; `Protocol()` returns the HTTP version |
-| `c.Hostname()` when the port is needed | `c.Host()`; `Hostname()` excludes the port |
-| `c.BodyParser(&value)` / `c.QueryParser(&value)` | `c.Bind().Body(&value)` / `c.Bind().Query(&value)` |
-| `c.ParamsParser(&value)` with `params` struct tags | `c.Bind().URI(&value)` with `uri` tags |
-| `app.Test(req, -1)` | `app.Test(req, fiber.TestConfig{Timeout: 0})` |
+### 1. Update dependencies and imports
 
-For a positive test timeout, replace milliseconds with a duration and preserve timeout errors:
-`fiber.TestConfig{Timeout: 3 * time.Second, FailOnTimeout: true}` replaces `3000`.
-See the [Fiber migration guide](https://docs.gofiber.io/whats_new/#migration-guide) for other router,
-middleware, adaptor, and utility API changes.
+Choose the v3 release, pseudo-version, or reviewed commit of the Qubership library that your application
+will use. In each Go module that depends on server-utils, including separate test modules, run:
 
-Pass listener options when starting the server, for both HTTP and platform-configured TLS:
+```shell
+go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3@<server-utils-version>
+```
+
+Here `<server-utils-version>` is the version of the Qubership library, not the Fiber version.
+Then update the Go import declarations in application code and tests:
+
+- Replace the prefix `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2` with
+  `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3`, including subpackages such as `security` and `errors`.
+- Replace `github.com/gofiber/fiber/v2` with `github.com/gofiber/fiber/v3`.
+
+### 2. Update handler and middleware signatures
+
+Change the request parameter from `*fiber.Ctx` to `fiber.Ctx` in route handlers, security middleware,
+callbacks, and custom error `Handle` methods. Fiber v3 defines `fiber.Ctx` as a Go interface.
+
+In the examples below, `fiber` is the import name for `github.com/gofiber/fiber/v3`.
+The parameter named `request` is the HTTP request context that Fiber passes to the handler:
+
+```go
+func handleRequest(request fiber.Ctx) error {
+    return request.SendStatus(fiber.StatusOK)
+}
+```
+
+### 3. Use the appropriate request context
+
+Replace calls to the Fiber v2 `request.UserContext()` method with `request.Context()`.
+This returns the application `context.Context` populated by server-utils with request and tenant data.
+Pass it to logging and downstream operations that accept a Go context. If your code sets this context
+explicitly, replace `request.SetUserContext(...)` with `request.SetContext(...)`.
+
+Review existing calls to the Fiber v2 `request.Context()` method separately: that method returned
+`*fasthttp.RequestCtx`. Its replacement is `request.RequestCtx()`, which is needed by fasthttp-based
+integrations such as WebSocket upgrades or code reading the remote network address.
+
+This middleware demonstrates both uses. The logger receives the application context, while
+RemoteAddr reads the transport context:
+
+```go
+func logRequest(request fiber.Ctx) error {
+    applicationContext := request.Context()
+    transportContext := request.RequestCtx()
+    logger := logging.GetLogger("http")
+    logger.InfoC(applicationContext, "Remote address: %s", transportContext.RemoteAddr().String())
+    return request.Next()
+}
+```
+
+Do not retain the `fiber.Ctx` handler parameter after the handler returns: Fiber reuses that object.
+Use the application context when passing request metadata to downstream operations.
+
+### 4. Move listener settings to server startup
+
+If your Fiber v2 application set `Network` or `DisableStartupMessage` in `fiber.Config`, remove those
+fields from the application configuration. Pass their values to `server.StartServer` or
+`server.StartServerOnAddress` through `fiber.ListenConfig` instead.
+
+For example, an application that used `Network: fiber.NetworkTCP` and `DisableStartupMessage: true`
+should start its server as follows. Here `app` is the `*fiber.App` returned by the builder's `Process`
+method, and `server` is imported from `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/server`:
 
 ```go
 server.StartServer(app, "http.server.bind", fiber.ListenConfig{
@@ -73,20 +121,52 @@ server.StartServer(app, "http.server.bind", fiber.ListenConfig{
 })
 ```
 
-Import `server` from `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/server`.
-Omitting ListenerNetwork keeps IPv4-only `tcp4`;
-carry an existing `NetworkTCP` setting into `ListenerNetwork` to retain dual-stack support.
-With platform TLS enabled, the server wrappers use the certificates, CA, and client-auth configuration
-from core-lib-go. ListenConfig TLS fields do not override those settings.
+Keep the bind-address property used by your application; this example uses `http.server.bind`.
+Preserve the old Network value: `tcp` permits IPv4 and IPv6, while the default `tcp4` is IPv4-only.
+If the application used the default network, omit ListenerNetwork.
 
-Library JSON responses retain `Content-Type: application/json`.
-Fiber v3 adds `charset=utf-8` to a direct `c.JSON(value)` call; use
-`c.JSON(value, fiber.MIMEApplicationJSON)` in consumer handlers that must retain the v2 header.
+The server wrappers apply these listener options to both HTTP and platform TLS.
+When platform TLS is enabled, certificates, CA, and client-auth settings still come from core-lib-go;
+TLS fields in ListenConfig do not override that platform configuration.
 
-Use `c.Context()` for downstream calls and `c.RequestCtx()` for fasthttp/WebSocket upgrades.
-Do not retain `fiber.Ctx` after the handler returns.
-Run `go mod tidy`, `go list -m all`, `go build ./...`, `go vet ./...`, and `go test ./...`
-in each changed module, and verify the HTTP/TLS and WebSocket contracts used by the consumer.
+### 5. Review request parsing and response compatibility
+
+- In handlers that parse a body or query string, replace `request.BodyParser(&value)` with
+  `request.Bind().Body(&value)` and `request.QueryParser(&value)` with `request.Bind().Query(&value)`.
+  For path parameters, replace `request.ParamsParser(&value)` with `request.Bind().URI(&value)`
+  and change struct tags such as `params:"id"` to `uri:"id"` so the fields are populated.
+- If a handler constructs URLs or records request metadata, use `request.Scheme()` for `http` or `https`.
+  Fiber v3 `request.Protocol()` returns the HTTP protocol version. Use `request.Host()` when the port
+  must be included; `request.Hostname()` returns the hostname without the port.
+- Review consumer handlers that call `request.JSON(value)`: Fiber v3 sets their Content-Type to
+  `application/json; charset=utf-8`. If the existing HTTP contract requires `application/json`,
+  call `request.JSON(value, fiber.MIMEApplicationJSON)`. JSON responses produced by server-utils
+  already preserve the previous Content-Type.
+
+See the [Fiber migration guide](https://docs.gofiber.io/whats_new/#migration-guide) for changes to
+other Fiber APIs used directly by your application, including routing, middleware, adaptor, and utilities.
+
+### 6. Update tests and verify the consumer
+
+In tests that call `app.Test`, replace the Fiber v2 integer timeout with a `fiber.TestConfig`.
+To preserve the no-timeout behavior of `app.Test(testRequest, -1)`, use
+`app.Test(testRequest, fiber.TestConfig{Timeout: 0})`.
+For a positive timeout such as `3000` milliseconds, use
+`fiber.TestConfig{Timeout: 3 * time.Second, FailOnTimeout: true}` so a timeout still fails the test.
+
+After updating the code, run these commands from each changed Go module:
+
+```shell
+go mod tidy
+go list -m all
+go build ./...
+go vet ./...
+go test ./...
+```
+
+Inspect the module list for dependencies that still use Fiber v2. Compare response statuses, headers,
+and bodies with the v2 application, and run the consumer's context propagation, HTTP/TLS, and WebSocket
+tests for the features it uses.
 
 ## Usage
 
@@ -135,9 +215,12 @@ unless you explicitly specify them in the configuration object which provided to
 
 A table with default values is shown below:
 
-| **Parameter name** | **Default value** | **Status**          |
-|--------------------|-------------------|---------------------|
-| ReadBufferSize     | 10240 bytes       | used when the supplied value is nonpositive; configurable with `http.buffer.header.max.size` |
+| **Parameter name** | **Default value** | **Configuration property**    |
+|--------------------|-------------------|-------------------------------|
+| ReadBufferSize     | 10240 bytes       | `http.buffer.header.max.size` |
+
+The builder reads this property when ReadBufferSize is omitted or nonpositive.
+A positive ReadBufferSize supplied in `fiber.Config` takes precedence over the property.
 
 #### New
 
@@ -174,7 +257,7 @@ app, err := fiberserver.New().
 
 
 #### WithApiVersion
-Method `WithApiVersion(apiVersionServices ...apiversion.ApiVersionService)` adds an API-version endpoint.
+Method `WithApiVersion(apiVersionServices ...apiversion.ApiVersionService)` allows adding api-version endpoint to service for checking version of api.
 * Param `apiVersionServices` allows to set service with custom implementation. If this parameter is empty, default apiVersionService will be provided.
   How to create _apiversion.ApiVersionService_ and configure it can be found on this page:
   [go-actuator](https://github.com/netcracker/qubership-core-lib-go-actuator-common/blob/main/README.md#api-version).
@@ -463,7 +546,6 @@ import (
   "github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
   fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
   "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
-  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/server"
   "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
   "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
   "github.com/gofiber/fiber/v3"
@@ -499,17 +581,15 @@ func main() {
   app.Get("/public-resource", customHandler)
   app.Get("/foo", fooHandler)
 
-  server.StartServer(app, "http.server.bind")
+  app.Listen(":8080")
 }
 
 func fooHandler(ctx fiber.Ctx) error  {
-  logger.InfoC(ctx.Context(), "Handling foo")
-  return ctx.SendStatus(fiber.StatusOK)
+  return nil
 }
 
 func customHandler(ctx fiber.Ctx) error  {
-  logger.InfoC(ctx.Context(), "Handling public resource")
-  return ctx.SendStatus(fiber.StatusOK)
+  return nil
 }
 ```
 
