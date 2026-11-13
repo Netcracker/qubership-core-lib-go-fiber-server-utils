@@ -162,14 +162,15 @@ How to create _health.HealthService_, configure it, and add health indicators ca
 
 enabling health usage:  
 ```go
-app := fiberserver.New()
-	.WithHealth("/health", health.NewHealthService(time.Health)) // existing implementation from go-actuator
-	.Process() // build fiber.App with health enabled
+healthService, err := health.NewHealthService(time.Hour)
+app, err := fiberserver.New().
+	WithHealth("/health", healthService).
+	Process()
 ```
 
 
 #### WithApiVersion
-Method `WithApiVersion(apiVersionServices ...*apiversion.ApiVersionService)` allows adding api-version endpoint to service for checking version of api.
+Method `WithApiVersion(apiVersionServices ...apiversion.ApiVersionService)` adds an API-version endpoint.
 * Param `apiVersionServices` allows to set service with custom implementation. If this parameter is empty, default apiVersionService will be provided.
   How to create _apiversion.ApiVersionService_ and configure it can be found on this page:
   [go-actuator](https://github.com/netcracker/qubership-core-lib-go-actuator-common/blob/main/README.md#api-version).
@@ -177,9 +178,9 @@ Method `WithApiVersion(apiVersionServices ...*apiversion.ApiVersionService)` all
 enabling api-version usage:
 ```go
 apiVersionService, err := apiversion.NewApiVersionService(apiversion.ApiVersionConfig{PathToApiVersionInfoFile: "./testdata/api-version-info.json"})
-app := fiberserver.New()
-	.WithApiVersion(&apiVersionService)
-	.Process() // build fiber.App with api-version enabled
+app, err := fiberserver.New().
+	WithApiVersion(apiVersionService).
+	Process()
 ```
 
 #### WithPrometheus
@@ -195,9 +196,9 @@ you can use this default global instance too.
 
 enabling prometheus usage:
 ```go
-app := fiberserver.New()
-	.WithPrometheus("/prometheus") 
-	.Process() // build fiber.App with prometheus metrics enabled
+app, err := fiberserver.New().
+	WithPrometheus("/prometheus").
+	Process()
 ```
 
 #### WithPprof
@@ -209,9 +210,9 @@ is intended for visualization and analysis of profiling data.
 
 enabling pprof usage:
 ```go
-app := fiberserver.New()
-	.WithPprof("6060") 
-	.Process() // build fiber.App with pprof enabled on localhost:6060
+app, err := fiberserver.New().
+	WithPprof("6060").
+	Process()
 ```
 
 #### WithTracer
@@ -282,14 +283,14 @@ TRACING_ENABLED=true
 TRACING_HOST=nc-diagnostic-agent
 ```
 ```go
-app := fiberserver.New().
+app, err := fiberserver.New().
     WithTracer(tracing.NewZipkinTracer()).
 	Process() // build fiber.App with zipkin tracer enabled
 ```
 
 Skip custom probes:
 ```go
-app := fiberserver.New().
+app, err := fiberserver.New().
     WithTracer(tracing.NewZipkinTracer(), fiberserver.SkipTracing("/health", "/ready")).
 	Process()
 ```
@@ -303,7 +304,7 @@ options := tracing.ZipkinOptions{
 		ServiceName:                "service-name",
 		Namespace:                  "namespace",
 }
-app := fiberserver.New().
+app, err := fiberserver.New().
     WithTracer(tracing.NewZipkinTracerWithOpts(options)).
 	Process() // build fiber.App with zipkin tracer enabled
 ``` 
@@ -313,9 +314,9 @@ Method WithLogLevelsInfo() allows adding log levels info endpoint to service for
 
 Enabling log levels info usage:
 ```go
-app := fiberserver.New()
-    .WithLogLevelsInfo()
-	.Process() // build fiber.App with log levels info enabled
+app, err := fiberserver.New().
+	WithLogLevelsInfo().
+	Process()
 ```
 
 The endpoint will be opened on `/api/logging/v1/levels` path.
@@ -392,7 +393,7 @@ This handler
    func (e *CustomErr) Handle(ctx fiber.Ctx) error {
      status := http.StatusBadRequest
      response := tmf.NewResponseBuilder(e).
-		Meta(e.getMeta()).
+		Meta(e.getMeta(ctx)).
         Status(status).
 		Build()
 	 return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
