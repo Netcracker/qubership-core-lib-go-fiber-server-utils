@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,4 +26,5 @@ func TestEnableHealth(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, expectedHealthResponse, string(body))
 	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 }

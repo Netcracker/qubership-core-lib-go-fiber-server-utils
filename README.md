@@ -11,6 +11,7 @@
 and create `fiber.App` instance that has all necessary configuration for correct work in the cloud-core environment.
 
 - [Install](#install)
+- [Upgrade from v2](#upgrade-from-v2)
 - [Usage](#usage)
   * [Builder](#builder)
       * [Overridden configs](#overridden-configs)
@@ -30,12 +31,142 @@ and create `fiber.App` instance that has all necessary configuration for correct
 
 ## Install
 
-To get `fiber-server-utils` use
-```go
- go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2@<latest released version>
+Server-utils v3 requires Go 1.26.5 or later and uses Fiber 3.7.0.
+To install the Qubership library, replace `<server-utils-version>` with its tag, pseudo-version, or commit:
+
+```shell
+go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3@<server-utils-version>
 ```
 
 List of all released versions may be found [here](https://github.com/netcracker/qubership-core-lib-go-fiber-server-utils/tags)
+
+## Upgrade from v2
+
+These instructions are for applications using `qubership-core-lib-go-fiber-server-utils/v2` with Fiber v2.
+The upgrade changes two Go modules: the Qubership library moves to `/v3`, and the Fiber framework moves
+to `github.com/gofiber/fiber/v3`. The Qubership library needs a new major version because its public
+server, security, and error-handling APIs expose Fiber types.
+
+### 1. Update dependencies and imports
+
+Choose the v3 release, pseudo-version, or reviewed commit of the Qubership library that your application
+will use. In each Go module that depends on server-utils, including separate test modules, run:
+
+```shell
+go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3@<server-utils-version>
+```
+
+Here `<server-utils-version>` is the version of the Qubership library, not the Fiber version.
+Then update the Go import declarations in application code and tests:
+
+- Replace the prefix `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2` with
+  `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3`, including subpackages such as `security` and `errors`.
+- Replace `github.com/gofiber/fiber/v2` with `github.com/gofiber/fiber/v3`.
+
+### 2. Update handler and middleware signatures
+
+Change the request parameter from `*fiber.Ctx` to `fiber.Ctx` in route handlers, security middleware,
+callbacks, and custom error `Handle` methods. Fiber v3 defines `fiber.Ctx` as a Go interface.
+
+In the examples below, `fiber` is the import name for `github.com/gofiber/fiber/v3`.
+The parameter named `request` is the HTTP request context that Fiber passes to the handler:
+
+```go
+func handleRequest(request fiber.Ctx) error {
+    return request.SendStatus(fiber.StatusOK)
+}
+```
+
+### 3. Use the appropriate request context
+
+Replace calls to the Fiber v2 `request.UserContext()` method with `request.Context()`.
+This returns the application `context.Context` populated by server-utils with request and tenant data.
+Pass it to logging and downstream operations that accept a Go context. If your code sets this context
+explicitly, replace `request.SetUserContext(...)` with `request.SetContext(...)`.
+
+Review existing calls to the Fiber v2 `request.Context()` method separately: that method returned
+`*fasthttp.RequestCtx`. Its replacement is `request.RequestCtx()`, which is needed by fasthttp-based
+integrations such as WebSocket upgrades or code reading the remote network address.
+
+This middleware demonstrates both uses. The logger receives the application context, while
+RemoteAddr reads the transport context:
+
+```go
+func logRequest(request fiber.Ctx) error {
+    applicationContext := request.Context()
+    transportContext := request.RequestCtx()
+    logger := logging.GetLogger("http")
+    logger.InfoC(applicationContext, "Remote address: %s", transportContext.RemoteAddr().String())
+    return request.Next()
+}
+```
+
+Do not retain the `fiber.Ctx` handler parameter after the handler returns: Fiber reuses that object.
+Use the application context when passing request metadata to downstream operations.
+
+### 4. Move listener settings to server startup
+
+If your Fiber v2 application set `Network` or `DisableStartupMessage` in `fiber.Config`, remove those
+fields from the application configuration. Pass their values to `server.StartServer` or
+`server.StartServerOnAddress` through `fiber.ListenConfig` instead.
+
+For example, an application that used `Network: fiber.NetworkTCP` and `DisableStartupMessage: true`
+should start its server as follows. Here `app` is the `*fiber.App` returned by the builder's `Process`
+method, and `server` is imported from `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/server`:
+
+```go
+server.StartServer(app, "http.server.bind", fiber.ListenConfig{
+    ListenerNetwork:       fiber.NetworkTCP,
+    DisableStartupMessage: true,
+})
+```
+
+Keep the bind-address property used by your application; this example uses `http.server.bind`.
+Preserve the old Network value: `tcp` permits IPv4 and IPv6, while the default `tcp4` is IPv4-only.
+If the application used the default network, omit ListenerNetwork.
+
+The server wrappers apply these listener options to both HTTP and platform TLS.
+When platform TLS is enabled, certificates, CA, and client-auth settings still come from core-lib-go;
+TLS fields in ListenConfig do not override that platform configuration.
+
+### 5. Review request parsing and response compatibility
+
+- In handlers that parse a body or query string, replace `request.BodyParser(&value)` with
+  `request.Bind().Body(&value)` and `request.QueryParser(&value)` with `request.Bind().Query(&value)`.
+  For path parameters, replace `request.ParamsParser(&value)` with `request.Bind().URI(&value)`
+  and change struct tags such as `params:"id"` to `uri:"id"` so the fields are populated.
+- If a handler constructs URLs or records request metadata, use `request.Scheme()` for `http` or `https`.
+  Fiber v3 `request.Protocol()` returns the HTTP protocol version. Use `request.Host()` when the port
+  must be included; `request.Hostname()` returns the hostname without the port.
+- Review consumer handlers that call `request.JSON(value)`: Fiber v3 sets their Content-Type to
+  `application/json; charset=utf-8`. If the existing HTTP contract requires `application/json`,
+  call `request.JSON(value, fiber.MIMEApplicationJSON)`. JSON responses produced by server-utils
+  already preserve the previous Content-Type.
+
+See the [Fiber migration guide](https://docs.gofiber.io/whats_new/#migration-guide) for changes to
+other Fiber APIs used directly by your application, including routing, middleware, adaptor, and utilities.
+
+### 6. Update tests and verify the consumer
+
+In tests that call `app.Test`, replace the Fiber v2 integer timeout with a `fiber.TestConfig`.
+To preserve the no-timeout behavior of `app.Test(testRequest, -1)`, use
+`app.Test(testRequest, fiber.TestConfig{Timeout: 0})`.
+For a positive timeout such as `3000` milliseconds, use
+`fiber.TestConfig{Timeout: 3 * time.Second, FailOnTimeout: true}` so a timeout still fails the test.
+
+After updating the code, run these commands from each changed Go module:
+
+```shell
+go mod tidy
+go list -m all
+go build ./...
+go vet ./...
+go test ./...
+```
+
+Inspect the module list for dependencies that still use Fiber v2. Compare response statuses, headers,
+and bodies with the v2 application, and run the consumer's context propagation, HTTP/TLS, and WebSocket
+tests for the features it uses.
 
 ## Usage
 
@@ -43,12 +174,12 @@ At first, you need to initialize configloader with desired property sources. Eac
 defines a source from which your application will receive properties.
 
 ```go
-configloader.Init(configloader.BasePropertySources()) // to use YAML and ENV property sources
+configloader.Init(configloader.BasePropertySources()...) // to use YAML and ENV property sources
 ```
 If you want to use `config-server` as property source you have to add extra dependency: [rest-utils](https://github.com/Netcracker/qubership-core-lib-go-rest-utils) module.
 In this case configuration loading should be initialized as
 ```go
-configloader.Init(configserver.AddConfigServerPropertySource(configloader.BasePropertySources())) 
+configloader.Init(configserver.AddConfigServerPropertySource(configloader.BasePropertySources())...)
 ```
 
 More information about property sources' configuration may be found at [configloader](https://github.com/netcracker/qubership-core-lib-go/blob/main/configloader/README.md)
@@ -62,7 +193,7 @@ After properties initialization you should register security implemention - dumm
 ```go
 import (
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
-  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 )
 
 func init() {
@@ -84,9 +215,12 @@ unless you explicitly specify them in the configuration object which provided to
 
 A table with default values is shown below:
 
-| **Parameter name** | **Default value** | **Status**          |
-|--------------------|-------------------|---------------------|
-| ReadBufferSize     | 8192              | since version 0.5.1 |
+| **Parameter name** | **Default value** | **Configuration property**    |
+|--------------------|-------------------|-------------------------------|
+| ReadBufferSize     | 10240 bytes       | `http.buffer.header.max.size` |
+
+The builder reads this property when ReadBufferSize is omitted or nonpositive.
+A positive ReadBufferSize supplied in `fiber.Config` takes precedence over the property.
 
 #### New
 
@@ -97,15 +231,13 @@ for `fiber.App` configuration or don't pass anything and use default config.
 config := fiber.Config{
     CaseSensitive: true,
     ServerHeader:  "Fiber",
-    AppName: "Test App v1.0.1"
-})
-app := fiberserver.New(config).Process() // build fiber.App without any cloud-core specific configuration
+    AppName: "Test App v1.0.1",
+}
+app, err := fiberserver.New(config).Process()
 ```
 
-> **_NOTE:_**  Default fiber configuration allows working only with IPv4.
-> If you need to use IPv4 and IPv6, add such configuration to app builder initialization
-> 
-> appBuilder, err := fiberserver.New(fiber.Config{Network: fiber.NetworkTCP})
+> **_NOTE:_** The default listener is IPv4-only. Use
+> `fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP}` when starting the server for IPv4 and IPv6.
 
 
 #### WithHealth
@@ -117,14 +249,15 @@ How to create _health.HealthService_, configure it, and add health indicators ca
 
 enabling health usage:  
 ```go
-app := fiberserver.New()
-	.WithHealth("/health", health.NewHealthService(time.Health)) // existing implementation from go-actuator
-	.Process() // build fiber.App with health enabled
+healthService, err := health.NewHealthService()
+app, err := fiberserver.New().
+	WithHealth("/health", healthService).
+	Process()
 ```
 
 
 #### WithApiVersion
-Method `WithApiVersion(apiVersionServices ...*apiversion.ApiVersionService)` allows adding api-version endpoint to service for checking version of api.
+Method `WithApiVersion(apiVersionServices ...apiversion.ApiVersionService)` allows adding api-version endpoint to service for checking version of api.
 * Param `apiVersionServices` allows to set service with custom implementation. If this parameter is empty, default apiVersionService will be provided.
   How to create _apiversion.ApiVersionService_ and configure it can be found on this page:
   [go-actuator](https://github.com/netcracker/qubership-core-lib-go-actuator-common/blob/main/README.md#api-version).
@@ -132,9 +265,9 @@ Method `WithApiVersion(apiVersionServices ...*apiversion.ApiVersionService)` all
 enabling api-version usage:
 ```go
 apiVersionService, err := apiversion.NewApiVersionService(apiversion.ApiVersionConfig{PathToApiVersionInfoFile: "./testdata/api-version-info.json"})
-app := fiberserver.New()
-	.WithApiVersion(&apiVersionService)
-	.Process() // build fiber.App with api-version enabled
+app, err := fiberserver.New().
+	WithApiVersion(apiVersionService).
+	Process()
 ```
 
 #### WithPrometheus
@@ -150,9 +283,9 @@ you can use this default global instance too.
 
 enabling prometheus usage:
 ```go
-app := fiberserver.New()
-	.WithPrometheus("/prometheus") 
-	.Process() // build fiber.App with prometheus metrics enabled
+app, err := fiberserver.New().
+	WithPrometheus("/prometheus").
+	Process()
 ```
 
 #### WithPprof
@@ -164,9 +297,9 @@ is intended for visualization and analysis of profiling data.
 
 enabling pprof usage:
 ```go
-app := fiberserver.New()
-	.WithPprof("6060") 
-	.Process() // build fiber.App with pprof enabled on localhost:6060
+app, err := fiberserver.New().
+	WithPprof("6060").
+	Process()
 ```
 
 #### WithTracer
@@ -237,14 +370,14 @@ TRACING_ENABLED=true
 TRACING_HOST=nc-diagnostic-agent
 ```
 ```go
-app := fiberserver.New().
+app, err := fiberserver.New().
     WithTracer(tracing.NewZipkinTracer()).
 	Process() // build fiber.App with zipkin tracer enabled
 ```
 
 Skip custom probes:
 ```go
-app := fiberserver.New().
+app, err := fiberserver.New().
     WithTracer(tracing.NewZipkinTracer(), fiberserver.SkipTracing("/health", "/ready")).
 	Process()
 ```
@@ -258,7 +391,7 @@ options := tracing.ZipkinOptions{
 		ServiceName:                "service-name",
 		Namespace:                  "namespace",
 }
-app := fiberserver.New().
+app, err := fiberserver.New().
     WithTracer(tracing.NewZipkinTracerWithOpts(options)).
 	Process() // build fiber.App with zipkin tracer enabled
 ``` 
@@ -268,9 +401,9 @@ Method WithLogLevelsInfo() allows adding log levels info endpoint to service for
 
 Enabling log levels info usage:
 ```go
-app := fiberserver.New()
-    .WithLogLevelsInfo()
-	.Process() // build fiber.App with log levels info enabled
+app, err := fiberserver.New().
+	WithLogLevelsInfo().
+	Process()
 ```
 
 The endpoint will be opened on `/api/logging/v1/levels` path.
@@ -279,14 +412,14 @@ The endpoint will be opened on `/api/logging/v1/levels` path.
 Method `Process()` builds configured `fiber.App` instance for future work. This method also registers base and security context providers and enables security auth.
 
 #### ProcessWithContext
-Method `ProcessWithContext(ctx context.Context)` builds configured `fiber.App` with provided context. This context can be used for graceful shutdown in the future.
+Method `ProcessWithContext(ctx context.Context)` uses the supplied context as the parent for request contexts.
+Canceling it cancels downstream operations that use those contexts. To stop the listener as well,
+pass it in `fiber.ListenConfig.GracefulContext` when starting the server, or call `app.Shutdown()`.
 
 ```go
 ctx, cancel := context.WithCancel(context.Background())
-app := fiberserver.New()
-	.ProcessWithContext(ctx) // build fiber.App with provided context
-...	
-cancel() // graceful shutdown
+app, err := fiberserver.New().ProcessWithContext(ctx)
+cancel()
 ``` 
 
 ### How to obtain context object
@@ -294,12 +427,14 @@ cancel() // graceful shutdown
 based on registered contexts and request data. List of registered contexts can be found [here](https://github.com/netcracker/qubership-core-lib-go/blob/main/context-propagation/README.md#base-contexts) 
  
 
-In order to obtain populated `context.Context` object, you should call `fiber.Ctx#UserContext` method in your handler. For example:
+Call `fiber.Ctx.Context()` to obtain the populated application context in a handler. For example:
 ```go
-app.Get("/test", func(ctx *fiber.Ctx) error {
-       ctx := ctx.UserContext()
-       requestId, err := xrequestid.Of(ctx)
-       ...
+app.Get("/test", func(ctx fiber.Ctx) error {
+       requestID, err := xrequestid.Of(ctx.Context())
+       if err != nil {
+           return err
+       }
+       return ctx.SendString(requestID.GetRequestId())
 })
 
 ```
@@ -310,14 +445,13 @@ To configure your fiber server to provide error response in NC specific TMF form
 
 ```go
 import 	(
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-  fibererrors "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/errors"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+  fibererrors "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/errors"
 )
 // code for all unexpected errors for your microservice/lib must start with corresponding abbreviation followed by digital code 0001 
 // 0001 digital part of the code is reserved specifically for this purpose
 unknownErrorCode := errs.ErrorCode{Code: "YOUR-MS_OR_LIB-0001", Title: "unexpected error"}
 app, err := fiberserver.New(fiber.Config{
-    Network:      fiber.NetworkTCP,
     IdleTimeout:  30 * time.Second,
     ErrorHandler: fibererrors.DefaultErrorHandler(unknownErrorCode),
 }).Process()
@@ -326,7 +460,7 @@ app, err := fiberserver.New(fiber.Config{
 This handler 
 1) allows to process all errors of type error as unknown errors.
 2) provides default handler for all errors which implement github.com/netcracker/qubership-core-lib-go-error-handling/errors.ErrCodeErr interface
-3) provides delegation of handling particular error to its own method - func(ctx *fiber.Ctx) error. See example below:
+3) provides delegation of handling particular error to its own method - func(ctx fiber.Ctx) error. See example below:
    ```go
    import 	(
      errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
@@ -342,17 +476,17 @@ This handler
     return errs.New(CustomErr{CustomField: detail}, errs.ErrorCode{Code:  "custom test error", Title: "custom test title",}, detail)
    }
 
-   func (e *CustomErr) getMeta(ctx *fiber.Ctx) map[string]any {
+   func (e *CustomErr) getMeta(ctx fiber.Ctx) map[string]any {
     return map[string]any{ "custom": e.CustomField }
    }
    
-   func (e *CustomErr) Handle(ctx *fiber.Ctx) error {
+   func (e *CustomErr) Handle(ctx fiber.Ctx) error {
      status := http.StatusBadRequest
      response := tmf.NewResponseBuilder(e).
-		Meta(e.getMeta()).
+		Meta(e.getMeta(ctx)).
         Status(status).
 		Build()
-	 return ctx.Status(status).JSON(response)
+	 return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
    }
    ```
 
@@ -364,11 +498,9 @@ provided in application.yaml file.
 
 ```go
 import 	(
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/"
-  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/deprecatedapi"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
 )
 app, err := fiberserver.New(fiber.Config{
-    Network:      fiber.NetworkTCP,
     IdleTimeout:  30 * time.Second,
 // enable DeprecatedApiSwitchedOff feature. Deprecated API will be switched off only when property 'deprecated.api.disabled' = true
 }).WithDeprecatedApiSwitchedOff().Process()
@@ -411,27 +543,34 @@ package main
 import (
   "github.com/netcracker/qubership-core-lib-go/v3/configloader"
   "github.com/netcracker/qubership-core-lib-go/v3/logging"
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+  "github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
   "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
   "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
-  "github.com/gofiber/fiber/v2"
-  "time"
+  "github.com/gofiber/fiber/v3"
 )
 
 var logger logging.Logger
 
 func init() {
   // provide property sources
-  configloader.Init(configloader.BasePropertySources())
+  configloader.Init(configloader.BasePropertySources()...)
   logger = logging.GetLogger("main")
+  serviceloader.Register(1, &security.DummyFiberServerSecurityMiddleware{})
 }
 
 func main() {
+  healthService, err := health.NewHealthService()
+  if err != nil {
+    logger.Error("Cannot create health service: %v", err)
+    return
+  }
   app, err := fiberserver.New().
     WithPprof("6060").
     WithPrometheus("/prometheus").
-    WithHealth("/health", health.NewHealthService(time.Hour)).
-    WithTracer(tracing.NewZipkinTracer(tracing.ZipkinOptions{ZipkinURL: "http://localhost:9411/api/v2/spans", ServiceName: "service-name", Namespace: "namespace"})).
+    WithHealth("/health", healthService).
+    WithTracer(tracing.NewZipkinTracer()).
     Process()
   if err != nil {
     logger.Error("Error during fiber app creation")
@@ -445,15 +584,11 @@ func main() {
   app.Listen(":8080")
 }
 
-func fooHandler(ctx *fiber.Ctx) error  {
-  userCtx := ctx.UserContext()
-  // ...
+func fooHandler(ctx fiber.Ctx) error  {
   return nil
 }
 
-func customHandler(ctx *fiber.Ctx) error  {
-  userCtx := ctx.UserContext()
-  // ...
+func customHandler(ctx fiber.Ctx) error  {
   return nil
 }
 ```

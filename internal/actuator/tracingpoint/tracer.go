@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/valyala/fasthttp"
@@ -46,7 +46,7 @@ func EnableOtelTracing(exporter tracing.OpenTelemetryExporter, app *fiber.App, u
 }
 
 func NewOtelTracingMiddleware(serverName string, untraced map[string]struct{}) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		if shouldSkipTracing(c, untraced) {
 			return c.Next()
 		}
@@ -58,12 +58,12 @@ func NewOtelTracingMiddleware(serverName string, untraced map[string]struct{}) f
 			trace.WithAttributes(semconv.HTTPURLKey.String(c.OriginalURL())),
 			trace.WithAttributes(semconv.HTTPUserAgentKey.String(string(c.Request().Header.UserAgent()))),
 			trace.WithAttributes(semconv.HTTPRequestContentLengthKey.Int(c.Request().Header.ContentLength())),
-			trace.WithAttributes(semconv.HTTPSchemeKey.String(c.Protocol())),
+			trace.WithAttributes(semconv.HTTPSchemeKey.String(c.Scheme())),
 			trace.WithAttributes(semconv.HTTPServerNameKey.String(serverName)),
 			trace.WithSpanKind(trace.SpanKindServer),
 		}, remoteServerAttributes(c), hostAttributes(c))
 
-		uCtx := extractB3HeadersToContext(c.UserContext(), c.Request())
+		uCtx := extractB3HeadersToContext(c.Context(), c.Request())
 		t := otel.GetTracerProvider().Tracer(tracerName)
 		otelCtx, span := t.Start(
 			uCtx,
@@ -71,7 +71,7 @@ func NewOtelTracingMiddleware(serverName string, untraced map[string]struct{}) f
 			spanOptions...,
 		)
 
-		c.SetUserContext(otelCtx)
+		c.SetContext(otelCtx)
 		defer span.End()
 
 		err := c.Next()
@@ -89,7 +89,7 @@ func NewOtelTracingMiddleware(serverName string, untraced map[string]struct{}) f
 // shouldSkipTracing reports whether the current request path is excluded from tracing.
 // Prefer c.Path() because global app.Use middleware often sees c.Route().Path as "/" / "/*"
 // before the concrete route is bound; also accept Route().Path for matched templates.
-func shouldSkipTracing(c *fiber.Ctx, untraced map[string]struct{}) bool {
+func shouldSkipTracing(c fiber.Ctx, untraced map[string]struct{}) bool {
 	for _, path := range requestPaths(c) {
 		if hasUntracedPrefix(path) {
 			return true
@@ -101,7 +101,7 @@ func shouldSkipTracing(c *fiber.Ctx, untraced map[string]struct{}) bool {
 	return false
 }
 
-func requestPaths(c *fiber.Ctx) []string {
+func requestPaths(c fiber.Ctx) []string {
 	paths := []string{c.Path()}
 	if route := c.Route(); route != nil && route.Path != "" {
 		paths = append(paths, route.Path)
@@ -118,13 +118,20 @@ func hasUntracedPrefix(path string) bool {
 	return false
 }
 
-func hostAttributes(c *fiber.Ctx) []trace.SpanStartOption {
+func hostAttributes(c fiber.Ctx) []trace.SpanStartOption {
 	logger.Debug("Start creating host attributes")
 	options := []trace.SpanStartOption{}
 	hostIP, hostName, hostPort := "", "", 0
-	for _, someHost := range []string{c.Hostname(), string(c.Request().Header.Peek("Host")), string(c.Request().Host())} {
+	for _, someHost := range []string{c.Host(), string(c.Request().Header.Peek("Host")), string(c.Request().Host())} {
 		hostPart := ""
-		if idx := strings.LastIndex(someHost, ":"); idx >= 0 {
+		if host, port, err := net.SplitHostPort(someHost); err == nil {
+			hostPart = host
+			if numPort, err := strconv.ParseUint(port, 10, 16); err == nil {
+				hostPort = int(numPort)
+			}
+		} else if ip := net.ParseIP(strings.Trim(someHost, "[]")); ip != nil {
+			hostPart = ip.String()
+		} else if idx := strings.LastIndex(someHost, ":"); idx >= 0 {
 			strPort := someHost[idx+1:]
 			numPort, err := strconv.ParseUint(strPort, 10, 16)
 			if err == nil {
@@ -159,17 +166,18 @@ func hostAttributes(c *fiber.Ctx) []trace.SpanStartOption {
 	return options
 }
 
-func remoteServerAttributes(c *fiber.Ctx) []trace.SpanStartOption {
+func remoteServerAttributes(c fiber.Ctx) []trace.SpanStartOption {
 	logger.Debug("Start creating remotes server attributes")
 	options := []trace.SpanStartOption{}
 	peerName, peerIP, peerPort := "", "", 0
 	{
-		hostPart := c.Context().RemoteAddr().String()
+		hostPart := c.RequestCtx().RemoteAddr().String()
 		portPart := ""
 		if idx := strings.LastIndex(hostPart, ":"); idx >= 0 {
-			hostPart = c.Context().RemoteAddr().String()[:idx]
-			portPart = c.Context().RemoteAddr().String()[idx+1:]
+			hostPart = c.RequestCtx().RemoteAddr().String()[:idx]
+			portPart = c.RequestCtx().RemoteAddr().String()[idx+1:]
 		}
+		hostPart = strings.Trim(hostPart, "[]")
 		if hostPart != "" {
 			if ip := net.ParseIP(hostPart); ip != nil {
 				peerIP = ip.String()

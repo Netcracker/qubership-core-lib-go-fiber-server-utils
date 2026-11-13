@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/apiversion"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,6 +26,7 @@ func TestEnableApiVersion(t *testing.T) {
 	assert.True(t, strings.Contains(string(body), "bluegreen"))
 	logger.Infof("%s", string(body))
 	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 }
 
 func TestEnableApiVersionError(t *testing.T) {
