@@ -73,6 +73,9 @@ func TestRoutingErrorsForUnmatchedRequests(t *testing.T) {
 			wantTMF: &tmfFields{Code: "TEST-0001", Message: "Method Not Allowed", Status: "405"}},
 		{name: "TMF handler: unknown method is 501 in plain text", config: tmfErrorHandler, method: "FOO", target: "/items",
 			wantStatus: 501, wantContentType: "text/plain; charset=utf-8", wantText: "Not Implemented"},
+		{name: "TMF handler: QUERY on a GET route is 405", config: tmfErrorHandler, method: "QUERY", target: "/items",
+			wantStatus: 405, wantContentType: "application/json", wantAllow: "GET, HEAD",
+			wantTMF: &tmfFields{Code: "TEST-0001", Message: "Method Not Allowed", Status: "405"}},
 		{name: "TMF handler: unknown path is 404", config: tmfErrorHandler, method: "GET", target: "/missing",
 			wantStatus: 404, wantContentType: "application/json",
 			wantTMF: &tmfFields{Code: "TEST-0001", Message: "Not Found", Status: "404"}},
@@ -86,6 +89,8 @@ func TestRoutingErrorsForUnmatchedRequests(t *testing.T) {
 			wantStatus: 405, wantContentType: "text/plain; charset=utf-8", wantAllow: "GET, HEAD", wantText: "Method Not Allowed"},
 		{name: "Fiber handler: unknown method is 501", config: fiberErrorHandler, method: "FOO", target: "/items",
 			wantStatus: 501, wantContentType: "text/plain; charset=utf-8", wantText: "Not Implemented"},
+		{name: "Fiber handler: QUERY on a GET route is 405", config: fiberErrorHandler, method: "QUERY", target: "/items",
+			wantStatus: 405, wantContentType: "text/plain; charset=utf-8", wantAllow: "GET, HEAD", wantText: "Method Not Allowed"},
 		{name: "Fiber handler: unknown path is 404", config: fiberErrorHandler, method: "GET", target: "/missing",
 			wantStatus: 404, wantContentType: "text/plain; charset=utf-8", wantText: "Not Found"},
 	}
