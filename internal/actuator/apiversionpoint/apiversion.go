@@ -24,7 +24,6 @@ func addEndpoint(apiVersionService apiversion.ApiVersionService) fiber.Handler {
 		ctx := c.Context()
 		data, err := apiVersionService.GetApiVersion(ctx)
 		if err == nil {
-			// Keep Content-Type at application/json: c.JSON adds "; charset=utf-8" by default.
 			return c.Status(http.StatusOK).JSON(data, fiber.MIMEApplicationJSON)
 		} else {
 			return c.Status(http.StatusInternalServerError).SendString(err.Error())

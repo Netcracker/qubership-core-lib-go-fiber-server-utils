@@ -21,7 +21,6 @@ func EnableHealth(healthService health.HealthService) fiber.Handler {
 func healthMiddleware(healthService health.HealthService) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		data := healthService.GetHealth()
-		// Keep Content-Type at application/json: c.JSON adds "; charset=utf-8" by default.
 		return c.Status(data.GetStatusCode()).
 			JSON(data.GetHealthMap(), fiber.MIMEApplicationJSON)
 	}

@@ -40,7 +40,6 @@ func DefaultErrorHandler(unknownErrorCode errs.ErrorCode) fiber.ErrorHandler {
 			logger.ErrorC(ctx.Context(), "%s", errs.ToLogFormatWithoutStackTrace(unknownError))
 			response = tmf.NewResponseBuilder(unknownError).Status(status).Build()
 		}
-		// Keep Content-Type at application/json: c.JSON adds "; charset=utf-8" by default.
 		return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
 	}
 }

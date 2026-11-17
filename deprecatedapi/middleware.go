@@ -113,7 +113,6 @@ func (p *DisabledUrlPatterns) disableDeprecatedApiHandler(ctx fiber.Ctx) error {
 		status := fiber.StatusNotFound
 		response := CreateErrorResponse(reqMethod, reqUri, methods, antPath, status)
 		ctx.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-		// Keep Content-Type at application/json: c.JSON adds "; charset=utf-8" by default.
 		return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
 	}
 	return ctx.Next()
