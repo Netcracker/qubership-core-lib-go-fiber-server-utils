@@ -286,6 +286,9 @@ func TestTracingSpanForRoutedRequest(t *testing.T) {
 	app.Get("/items/:id", func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	})
+	app.Get("/unavailable", func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	})
 	app.Get("/broken", func(c fiber.Ctx) error {
 		return errors.New("broken handler")
 	})
@@ -328,6 +331,17 @@ func TestTracingSpanForRoutedRequest(t *testing.T) {
 					"http.method": "GET", "http.route": "/", "http.target": "/broken", "http.url": "/broken",
 					"http.scheme": "http", "http.server_name": "characterization-server", "http.user_agent": "characterization-agent",
 					"http.status_code": int64(200), "net.host.ip": "127.0.0.1", "net.host.name": nil, "net.host.port": port,
+					"net.peer.ip": "127.0.0.1", "net.peer.port": clientPort,
+				}
+			},
+		},
+		{
+			name: "status set by the handler is recorded as the span status", target: "/unavailable", host: addr, wantStatus: codes.Error,
+			wantAttrs: func(clientPort int64) map[string]any {
+				return map[string]any{
+					"http.method": "GET", "http.route": "/", "http.target": "/unavailable", "http.url": "/unavailable",
+					"http.scheme": "http", "http.server_name": "characterization-server", "http.user_agent": "characterization-agent",
+					"http.status_code": int64(503), "net.host.ip": "127.0.0.1", "net.host.name": nil, "net.host.port": port,
 					"net.peer.ip": "127.0.0.1", "net.peer.port": clientPort,
 				}
 			},
@@ -405,7 +419,7 @@ func TestTracingContinuesB3Parent(t *testing.T) {
 	require.Len(t, spans, 1)
 	assert.Equal(t, "463ac35c9f6413ad48485a3953bb6124", spans[0].SpanContext.TraceID().String())
 	assert.Equal(t, "a2fb4a1d1a96d312", spans[0].Parent.SpanID().String())
-	assert.True(t, spans[0].Parent.IsRemote())
+	assert.True(t, spans[0].Parent.IsRemote(), "parent span context %v", spans[0].Parent)
 }
 
 func TestPrometheusMiddlewareRecordsMatchedRoutesOnly(t *testing.T) {
@@ -494,9 +508,9 @@ func TestReadBufferSizeLimitsRequestHeaders(t *testing.T) {
 		wantStatus      int
 		wantContentType string
 	}{
-		{name: "request head 512 bytes under the 10240-byte buffer is accepted",
-			request: paddedRequest(addr, 10240-512, true), wantStatus: 200, wantContentType: "text/plain; charset=utf-8"},
-		{name: "request head filling the 10240-byte buffer is refused",
+		{name: "request head of exactly 10240 bytes is accepted",
+			request: paddedRequest(addr, 10240, true), wantStatus: 200, wantContentType: "text/plain; charset=utf-8"},
+		{name: "request head not ended within 10240 bytes is refused",
 			request: paddedRequest(addr, 10240, false), wantStatus: 431, wantContentType: "application/json"},
 	}
 	for _, tt := range tests {

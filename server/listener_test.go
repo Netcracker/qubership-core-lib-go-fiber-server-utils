@@ -20,31 +20,40 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestStartServerOnAddressListenerNetwork(t *testing.T) {
+func TestServerListenerNetwork(t *testing.T) {
+	listenConfig := func(network string) []fiber.ListenConfig {
+		return []fiber.ListenConfig{{ListenerNetwork: network, DisableStartupMessage: true}}
+	}
 	tests := []struct {
-		name          string
-		tls           bool
-		network       string
-		dialHost      string
-		wantReachable bool
+		name           string
+		tls            bool
+		viaStartServer bool
+		config         []fiber.ListenConfig
+		dialHost       string
+		wantReachable  bool
 	}{
-		{name: "HTTP default network accepts IPv4", network: "", dialHost: "127.0.0.1", wantReachable: true},
-		{name: "HTTP default network refuses IPv6", network: "", dialHost: "::1", wantReachable: false},
-		{name: "HTTP tcp4 accepts IPv4", network: "tcp4", dialHost: "127.0.0.1", wantReachable: true},
-		{name: "HTTP tcp4 refuses IPv6", network: "tcp4", dialHost: "::1", wantReachable: false},
-		{name: "HTTP tcp accepts IPv4", network: "tcp", dialHost: "127.0.0.1", wantReachable: true},
-		{name: "HTTP tcp accepts IPv6", network: "tcp", dialHost: "::1", wantReachable: true},
-		{name: "TLS default network accepts IPv4", tls: true, network: "", dialHost: "127.0.0.1", wantReachable: true},
-		{name: "TLS default network refuses IPv6", tls: true, network: "", dialHost: "::1", wantReachable: false},
-		{name: "TLS tcp4 accepts IPv4", tls: true, network: "tcp4", dialHost: "127.0.0.1", wantReachable: true},
-		{name: "TLS tcp4 refuses IPv6", tls: true, network: "tcp4", dialHost: "::1", wantReachable: false},
-		{name: "TLS tcp accepts IPv4", tls: true, network: "tcp", dialHost: "127.0.0.1", wantReachable: true},
-		{name: "TLS tcp accepts IPv6", tls: true, network: "tcp", dialHost: "::1", wantReachable: true},
+		{name: "HTTP without ListenConfig accepts IPv4", dialHost: "127.0.0.1", wantReachable: true},
+		{name: "HTTP without ListenConfig refuses IPv6", dialHost: "::1", wantReachable: false},
+		{name: "HTTP empty ListenerNetwork refuses IPv6", config: listenConfig(""), dialHost: "::1", wantReachable: false},
+		{name: "HTTP tcp4 accepts IPv4", config: listenConfig("tcp4"), dialHost: "127.0.0.1", wantReachable: true},
+		{name: "HTTP tcp4 refuses IPv6", config: listenConfig("tcp4"), dialHost: "::1", wantReachable: false},
+		{name: "HTTP tcp accepts IPv4", config: listenConfig("tcp"), dialHost: "127.0.0.1", wantReachable: true},
+		{name: "HTTP tcp accepts IPv6", config: listenConfig("tcp"), dialHost: "::1", wantReachable: true},
+		{name: "HTTP StartServer passes tcp on and accepts IPv6", viaStartServer: true, config: listenConfig("tcp"), dialHost: "::1", wantReachable: true},
+		{name: "TLS without ListenConfig accepts IPv4", tls: true, dialHost: "127.0.0.1", wantReachable: true},
+		{name: "TLS without ListenConfig refuses IPv6", tls: true, dialHost: "::1", wantReachable: false},
+		{name: "TLS empty ListenerNetwork refuses IPv6", tls: true, config: listenConfig(""), dialHost: "::1", wantReachable: false},
+		{name: "TLS tcp4 accepts IPv4", tls: true, config: listenConfig("tcp4"), dialHost: "127.0.0.1", wantReachable: true},
+		{name: "TLS tcp4 refuses IPv6", tls: true, config: listenConfig("tcp4"), dialHost: "::1", wantReachable: false},
+		{name: "TLS tcp accepts IPv4", tls: true, config: listenConfig("tcp"), dialHost: "127.0.0.1", wantReachable: true},
+		{name: "TLS tcp accepts IPv6", tls: true, config: listenConfig("tcp"), dialHost: "::1", wantReachable: true},
+		{name: "TLS StartServer passes tcp on and accepts IPv6", tls: true, viaStartServer: true, config: listenConfig("tcp"), dialHost: "::1", wantReachable: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -55,11 +64,18 @@ func TestStartServerOnAddressListenerNetwork(t *testing.T) {
 				enableTLS(t)
 			}
 			port := freePort(t)
+			address := ":" + strconv.Itoa(port)
 			app := fiber.New()
 			app.Get("/ok", func(c fiber.Ctx) error {
 				return c.SendString("ok")
 			})
-			go StartServerOnAddress(app, ":"+strconv.Itoa(port), fiber.ListenConfig{ListenerNetwork: tt.network, DisableStartupMessage: true})
+			if tt.viaStartServer {
+				t.Setenv("listener.test.bind", address)
+				configloader.InitWithSourcesArray([]*configloader.PropertySource{configloader.EnvPropertySource()})
+				go StartServer(app, "listener.test.bind", tt.config...)
+			} else {
+				go StartServerOnAddress(app, address, tt.config...)
+			}
 			t.Cleanup(func() { _ = app.Shutdown() })
 			client := testClient()
 			scheme := "http"
