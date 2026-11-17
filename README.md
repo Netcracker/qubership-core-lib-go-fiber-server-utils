@@ -474,34 +474,40 @@ Version 3 of this library is built on Fiber v3, and its public API exposes Fiber
    | `github.com/gofiber/fiber/v2` | `github.com/gofiber/fiber/v3` |
    | `github.com/gofiber/adaptor/v2` | `github.com/gofiber/fiber/v3/middleware/adaptor` |
 
-2. Update the code that uses the library API:
+2. Update the code that uses the library API. Fiber v3 passes the request context to handlers as the interface
+   `fiber.Ctx` instead of the pointer `*fiber.Ctx`; below, `c` is that value in a handler `func(c fiber.Ctx) error`.
 
    | v2 | v3 |
    | --- | --- |
-   | `func(c *fiber.Ctx) error` handlers, `security.SecurityMiddleware.GetSecurityMiddleware() func(*fiber.Ctx) error`, `Handle(ctx *fiber.Ctx) error` on errors for `errors.DefaultErrorHandler` | the same with `fiber.Ctx` |
-   | `c.UserContext()`, `c.SetUserContext(ctx)` | `c.Context()`, `c.SetContext(ctx)` |
-   | `c.Context()` for `*fasthttp.RequestCtx` | `c.RequestCtx()` |
-   | `fiberserver.New(fiber.Config{Network: fiber.NetworkTCP})` | `server.StartServer(app, key, fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})` |
+   | A handler `func(c *fiber.Ctx) error` | `func(c fiber.Ctx) error` |
+   | `GetSecurityMiddleware() func(*fiber.Ctx) error` of a `security.SecurityMiddleware` implementation | `GetSecurityMiddleware() func(fiber.Ctx) error` |
+   | `Handle(ctx *fiber.Ctx) error` of an error that `errors.DefaultErrorHandler` delegates to | `Handle(ctx fiber.Ctx) error` |
+   | `c.UserContext()` and `c.SetUserContext(ctx)` for the request `context.Context` | `c.Context()` and `c.SetContext(ctx)` |
+   | `c.Context()` for the `*fasthttp.RequestCtx` | `c.RequestCtx()` |
+   | `fiberserver.New(fiber.Config{Network: fiber.NetworkTCP})` and `server.StartServer(app, "http.server.bind")` | `fiberserver.New()` and `server.StartServer(app, "http.server.bind", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})` |
 
-   `server.StartServer` and `server.StartServerOnAddress` take an optional `fiber.ListenConfig`. Without it the server
-   listens on IPv4 only, so a service that set `Network: fiber.NetworkTCP` passes `ListenerNetwork: fiber.NetworkTCP`
-   there to keep IPv6.
+   The second argument of `server.StartServer` names the property that holds the listen address. `server.StartServer`
+   and `server.StartServerOnAddress` take an optional `fiber.ListenConfig`; without it the server listens on IPv4 only.
+   A service that set `Network: fiber.NetworkTCP` passes `ListenerNetwork: fiber.NetworkTCP` there to keep IPv6.
 
-3. Pass `c.Context()`, never `c`, where a `context.Context` is expected (see
-   [How to obtain context object](#how-to-obtain-context-object)).
+3. Pass `c.Context()`, never `c`, where a `context.Context` is expected. `c` compiles there too, but the request data
+   such as `request_id` is lost (see [How to obtain context object](#how-to-obtain-context-object)).
 
-4. `c.JSON` in Fiber v3 sends `Content-Type: application/json; charset=utf-8`. The responses of this library keep
-   `application/json`; pass `fiber.MIMEApplicationJSON` as the second argument of `c.JSON` to keep it in your handlers
-   and in `Handle` methods.
+4. `c.JSON(body)` in Fiber v3 sends `Content-Type: application/json; charset=utf-8`. The responses of this library
+   keep `application/json`. To keep it in your handlers and `Handle` methods, write
+   `c.JSON(body, fiber.MIMEApplicationJSON)`.
 
-5. Expect these responses to change on Fiber v3:
+5. Expect these responses to change:
 
    | Request | v2 | v3 |
    | --- | --- | --- |
    | A path no route matches | `404`, error text `Cannot GET /path` | `404`, error text `Not Found` |
    | An unknown HTTP method, such as `FOO` | `400`, body `Invalid http method` | `501`, body `Not Implemented` |
-   | A request refused before routing (`400`, `408`, `413`, `431`, `501`) | the error handler runs alone | the middleware registered with `Use` runs first: the error log line carries `request_id`, a span named `/` is exported, and `http_request_status` counts the request under path `/` |
+   | A request the server refuses before routing: a body over `BodyLimit` (`413`), headers over `ReadBufferSize` (`431`), a malformed request (`400`) | Only the error handler runs | The middleware registered with `app.Use` runs before the error handler (see below) |
 
-   With `errors.DefaultErrorHandler`, the error text is the `message` field of the TMF response.
+   With `errors.DefaultErrorHandler`, the error text is the `message` field of the TMF response. For a request refused
+   before routing, the status and the body stay the same, and the middleware of this library now handles it like any
+   other request: the error log line carries its `request_id`, the tracer exports a span named `/`, and the
+   `http_request_status` metric counts the request under path `/`. Your own `app.Use` middleware runs for it as well.
 
 For the changes in Fiber itself, see the [Fiber v3 migration guide](https://docs.gofiber.io/whats_new).
