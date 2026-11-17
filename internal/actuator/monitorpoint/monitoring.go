@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/monitoring"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
