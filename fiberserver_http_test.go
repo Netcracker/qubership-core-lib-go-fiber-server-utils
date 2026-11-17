@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strconv"
 	"strings"
@@ -67,10 +66,10 @@ func TestRoutingErrorsForUnmatchedRequests(t *testing.T) {
 		{name: "TMF handler: HEAD on a GET route is served", config: tmfErrorHandler, method: "HEAD", target: "/items",
 			wantStatus: 200, wantContentType: "text/plain; charset=utf-8", wantText: ""},
 		{name: "TMF handler: OPTIONS on a GET route is 405", config: tmfErrorHandler, method: "OPTIONS", target: "/items",
-			wantStatus: 405, wantContentType: "application/json",
+			wantStatus: 405, wantContentType: "application/json", wantAllow: "GET, HEAD",
 			wantTMF: &tmfFields{Code: "TEST-0001", Message: "Method Not Allowed", Status: "405"}},
 		{name: "TMF handler: POST on a GET route is 405", config: tmfErrorHandler, method: "POST", target: "/items",
-			wantStatus: 405, wantContentType: "application/json",
+			wantStatus: 405, wantContentType: "application/json", wantAllow: "GET, HEAD",
 			wantTMF: &tmfFields{Code: "TEST-0001", Message: "Method Not Allowed", Status: "405"}},
 		{name: "TMF handler: unknown method is 400 in plain text", config: tmfErrorHandler, method: "FOO", target: "/items",
 			wantStatus: 400, wantContentType: "text/plain; charset=utf-8", wantText: "Invalid http method"},
@@ -82,9 +81,9 @@ func TestRoutingErrorsForUnmatchedRequests(t *testing.T) {
 		{name: "Fiber handler: HEAD on a GET route is served", config: fiberErrorHandler, method: "HEAD", target: "/items",
 			wantStatus: 200, wantContentType: "text/plain; charset=utf-8", wantText: ""},
 		{name: "Fiber handler: OPTIONS on a GET route is 405", config: fiberErrorHandler, method: "OPTIONS", target: "/items",
-			wantStatus: 405, wantContentType: "text/plain; charset=utf-8", wantText: "Method Not Allowed"},
+			wantStatus: 405, wantContentType: "text/plain; charset=utf-8", wantAllow: "GET, HEAD", wantText: "Method Not Allowed"},
 		{name: "Fiber handler: POST on a GET route is 405", config: fiberErrorHandler, method: "POST", target: "/items",
-			wantStatus: 405, wantContentType: "text/plain; charset=utf-8", wantText: "Method Not Allowed"},
+			wantStatus: 405, wantContentType: "text/plain; charset=utf-8", wantAllow: "GET, HEAD", wantText: "Method Not Allowed"},
 		{name: "Fiber handler: unknown method is 400", config: fiberErrorHandler, method: "FOO", target: "/items",
 			wantStatus: 400, wantContentType: "text/plain; charset=utf-8", wantText: "Invalid http method"},
 		{name: "Fiber handler: unknown path is 404", config: fiberErrorHandler, method: "GET", target: "/missing",
@@ -184,9 +183,6 @@ func TestDeprecatedApiBlocking(t *testing.T) {
 			Status: "404",
 		}
 	}
-	notFound := func(message string) *tmfFields {
-		return &tmfFields{Code: "TEST-0001", Message: message, Status: "404"}
-	}
 
 	tests := []struct {
 		name            string
@@ -222,18 +218,18 @@ func TestDeprecatedApiBlocking(t *testing.T) {
 		{name: "trailing slash is declined", method: "GET", target: "/deprecated-api/v1/items/",
 			wantStatus: 404, wantContentType: "application/json",
 			wantTMF: declined("GET", "/deprecated-api/v1/items/", "[GET PUT DELETE]", "/deprecated-api/v1/**")},
-		{name: "double leading slash is declined", method: "GET", target: "//deprecated-api/v1/items",
+		{name: "double leading slash is declined as the normalized path", method: "GET", target: "//deprecated-api/v1/items",
 			wantStatus: 404, wantContentType: "application/json",
-			wantTMF: declined("GET", "//deprecated-api/v1/items", "[GET PUT DELETE]", "/deprecated-api/v1/**")},
-		{name: "dot-dot segment reaches no route", method: "GET", target: "/api/../deprecated-api/v1/items",
+			wantTMF: declined("GET", "/deprecated-api/v1/items", "[GET PUT DELETE]", "/deprecated-api/v1/**")},
+		{name: "dot-dot segment is declined as the normalized path", method: "GET", target: "/api/../deprecated-api/v1/items",
 			wantStatus: 404, wantContentType: "application/json",
-			wantTMF: notFound("Cannot GET /api/../deprecated-api/v1/items")},
-		{name: "encoded dot-dot segment reaches no route", method: "GET", target: "/api/%2e%2e/deprecated-api/v1/items",
+			wantTMF: declined("GET", "/deprecated-api/v1/items", "[GET PUT DELETE]", "/deprecated-api/v1/**")},
+		{name: "encoded dot-dot segment is declined as the normalized path", method: "GET", target: "/api/%2e%2e/deprecated-api/v1/items",
 			wantStatus: 404, wantContentType: "application/json",
-			wantTMF: notFound("Cannot GET /api/%2e%2e/deprecated-api/v1/items")},
-		{name: "percent-encoded letter reaches no route", method: "GET", target: "/deprecated-api/%761/items",
+			wantTMF: declined("GET", "/deprecated-api/v1/items", "[GET PUT DELETE]", "/deprecated-api/v1/**")},
+		{name: "percent-encoded letter is declined as the normalized path", method: "GET", target: "/deprecated-api/%761/items",
 			wantStatus: 404, wantContentType: "application/json",
-			wantTMF: notFound("Cannot GET /deprecated-api/%761/items")},
+			wantTMF: declined("GET", "/deprecated-api/v1/items", "[GET PUT DELETE]", "/deprecated-api/v1/**")},
 		{name: "path outside the patterns is served", method: "GET", target: "/api/v1/items",
 			wantStatus: 200, wantContentType: "text/plain; charset=utf-8", wantText: "ok"},
 	}
@@ -312,12 +308,12 @@ func TestTracingSpanForRoutedRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "handler error", target: "/broken", host: addr, wantStatus: codes.Error,
+			name: "handler error is recorded before the error handler sets the status", target: "/broken", host: addr, wantStatus: codes.Unset,
 			wantAttrs: func(clientPort int64) map[string]any {
 				return map[string]any{
 					"http.method": "GET", "http.route": "/", "http.target": "/broken", "http.url": "/broken",
 					"http.scheme": "http", "http.server_name": "characterization-server", "http.user_agent": "characterization-agent",
-					"http.status_code": int64(500), "net.host.ip": "127.0.0.1", "net.host.name": nil, "net.host.port": port,
+					"http.status_code": int64(200), "net.host.ip": "127.0.0.1", "net.host.name": nil, "net.host.port": port,
 					"net.peer.ip": "127.0.0.1", "net.peer.port": clientPort,
 				}
 			},
@@ -476,29 +472,25 @@ func TestReadBufferSizeLimitsRequestHeaders(t *testing.T) {
 	app.Get("/ok", func(c *fiber.Ctx) error {
 		return c.SendString("ok")
 	})
+	addr := serve(t, app)
 
 	tests := []struct {
 		name            string
-		paddingBytes    int
+		request         string
 		wantStatus      int
 		wantContentType string
 	}{
-		{name: "headers just under the 10240-byte buffer are accepted", paddingBytes: 10240 - 512, wantStatus: 200,
-			wantContentType: "text/plain; charset=utf-8"},
-		{name: "headers just over the 10240-byte buffer are refused", paddingBytes: 10240 + 512, wantStatus: 431,
-			wantContentType: "application/json"},
+		{name: "request head 512 bytes under the 10240-byte buffer is accepted",
+			request: paddedRequest(addr, 10240-512, true), wantStatus: 200, wantContentType: "text/plain; charset=utf-8"},
+		{name: "request head filling the 10240-byte buffer is refused",
+			request: paddedRequest(addr, 10240, false), wantStatus: 431, wantContentType: "application/json"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/ok", nil)
-			req.Header.Set("X-Padding", strings.Repeat("a", tt.paddingBytes))
+			result := send(t, addr, tt.request)
 
-			resp, err := app.Test(req)
-
-			require.NoError(t, err)
-			defer resp.Body.Close()
-			assert.Equal(t, tt.wantStatus, resp.StatusCode)
-			assert.Equal(t, tt.wantContentType, resp.Header.Get("Content-Type"))
+			assert.Equal(t, tt.wantStatus, result.status)
+			assert.Equal(t, tt.wantContentType, result.header.Get("Content-Type"))
 		})
 	}
 }
@@ -515,43 +507,29 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 	app.All("/ok", func(c *fiber.Ctx) error {
 		return c.SendString("ok")
 	})
+	addr := serve(t, app)
 
 	tests := []struct {
 		name               string
-		request            func() *http.Request
+		request            string
 		wantStatus         int
-		wantCode           string
 		wantStatusField    string
 		wantMessagePattern string
 	}{
 		{
-			name: "body over BodyLimit is 413",
-			request: func() *http.Request {
-				req := httptest.NewRequest(http.MethodPost, "/ok", strings.NewReader(strings.Repeat("a", 2048)))
-				req.Header.Set("X-Request-Id", "protocol-error-request")
-				return req
-			},
-			wantStatus: 413, wantCode: "TEST-0001", wantStatusField: "413", wantMessagePattern: `^Request Entity Too Large$`,
+			name:       "declared body over BodyLimit is 413",
+			request:    rawRequest("POST", "/ok", addr, "X-Request-Id: protocol-error-request", "Content-Length: 2048"),
+			wantStatus: 413, wantStatusField: "413", wantMessagePattern: `^Request Entity Too Large$`,
 		},
 		{
-			name: "headers over ReadBufferSize are 431",
-			request: func() *http.Request {
-				req := httptest.NewRequest(http.MethodGet, "/ok", nil)
-				req.Header.Set("X-Request-Id", "protocol-error-request")
-				req.Header.Set("X-Padding", strings.Repeat("a", 10240+512))
-				return req
-			},
-			wantStatus: 431, wantCode: "TEST-0001", wantStatusField: "431", wantMessagePattern: `^Request Header Fields Too Large$`,
+			name:       "request head over ReadBufferSize is 431",
+			request:    paddedRequest(addr, 10240, false),
+			wantStatus: 431, wantStatusField: "431", wantMessagePattern: `^Request Header Fields Too Large$`,
 		},
 		{
-			name: "malformed Content-Length is 400",
-			request: func() *http.Request {
-				req := httptest.NewRequest(http.MethodGet, "/ok", nil)
-				req.Header.Set("X-Request-Id", "protocol-error-request")
-				req.Header.Set("Content-Length", "abc")
-				return req
-			},
-			wantStatus: 400, wantCode: "TEST-0001", wantStatusField: "400", wantMessagePattern: `Content-Length`,
+			name:       "malformed Content-Length is 400",
+			request:    rawRequest("GET", "/ok", addr, "X-Request-Id: protocol-error-request", "Content-Length: abc"),
+			wantStatus: 400, wantStatusField: "400", wantMessagePattern: `cannot parse content-length`,
 		},
 	}
 	for _, tt := range tests {
@@ -559,17 +537,13 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 			tracing.spans.Reset()
 			output := captureStdout(t)
 
-			resp, err := app.Test(tt.request())
+			result := send(t, addr, tt.request)
 
-			require.NoError(t, err)
-			defer resp.Body.Close()
-			body, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
 			output.stop()
-			assert.Equal(t, tt.wantStatus, resp.StatusCode)
-			assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
-			response := decodeTMF(t, string(body))
-			assert.Equal(t, tt.wantCode, response.Code)
+			assert.Equal(t, tt.wantStatus, result.status)
+			assert.Equal(t, "application/json", result.header.Get("Content-Type"))
+			response := decodeTMF(t, result.body)
+			assert.Equal(t, "TEST-0001", response.Code)
 			assert.Equal(t, tt.wantStatusField, response.Status)
 			assert.Regexp(t, tt.wantMessagePattern, response.Message)
 			assert.Empty(t, tracing.spans.GetSpans(), "spans exported for the refused request")
@@ -630,6 +604,15 @@ func rawRequest(method, target, host string, headers ...string) string {
 	}
 	b.WriteString("\r\n")
 	return b.String()
+}
+
+func paddedRequest(host string, totalBytes int, terminated bool) string {
+	head := "GET /ok HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\nX-Request-Id: protocol-error-request\r\nX-Padding: "
+	end := ""
+	if terminated {
+		end = "\r\n\r\n"
+	}
+	return head + strings.Repeat("a", totalBytes-len(head)-len(end)) + end
 }
 
 func send(t *testing.T, addr, request string) httpResult {
