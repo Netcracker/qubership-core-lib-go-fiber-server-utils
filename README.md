@@ -514,7 +514,7 @@ Version 3 of this library is built on Fiber v3, and its public API exposes Fiber
 
    For a request refused before routing, the status and the body stay the same, and the middleware of this library
    now handles it like any other request: the error log line carries its `request_id`, the tracer exports a span named
-   `/`, and the `http_request_status` metric counts the request under path `/`. Your own `app.Use` middleware runs for
-   it as well.
+   `/`, and the `http_request_status` metric counts the request under path `/`. Middleware that the service registers
+   with `app.Use` runs for such a request too.
 
 For the changes in Fiber itself, see the [Fiber v3 migration guide](https://docs.gofiber.io/whats_new).
