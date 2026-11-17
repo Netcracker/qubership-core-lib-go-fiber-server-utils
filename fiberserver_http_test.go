@@ -71,11 +71,11 @@ func TestRoutingErrorsForUnmatchedRequests(t *testing.T) {
 		{name: "TMF handler: POST on a GET route is 405", config: tmfErrorHandler, method: "POST", target: "/items",
 			wantStatus: 405, wantContentType: "application/json", wantAllow: "GET, HEAD",
 			wantTMF: &tmfFields{Code: "TEST-0001", Message: "Method Not Allowed", Status: "405"}},
-		{name: "TMF handler: unknown method is 400 in plain text", config: tmfErrorHandler, method: "FOO", target: "/items",
-			wantStatus: 400, wantContentType: "text/plain; charset=utf-8", wantText: "Invalid http method"},
+		{name: "TMF handler: unknown method is 501 in plain text", config: tmfErrorHandler, method: "FOO", target: "/items",
+			wantStatus: 501, wantContentType: "text/plain; charset=utf-8", wantText: "Not Implemented"},
 		{name: "TMF handler: unknown path is 404", config: tmfErrorHandler, method: "GET", target: "/missing",
 			wantStatus: 404, wantContentType: "application/json",
-			wantTMF: &tmfFields{Code: "TEST-0001", Message: "Cannot GET /missing", Status: "404"}},
+			wantTMF: &tmfFields{Code: "TEST-0001", Message: "Not Found", Status: "404"}},
 		{name: "TMF handler: HEAD on an unknown path is 404 without a body", config: tmfErrorHandler, method: "HEAD", target: "/missing",
 			wantStatus: 404, wantContentType: "application/json", wantText: ""},
 		{name: "Fiber handler: HEAD on a GET route is served", config: fiberErrorHandler, method: "HEAD", target: "/items",
@@ -84,10 +84,10 @@ func TestRoutingErrorsForUnmatchedRequests(t *testing.T) {
 			wantStatus: 405, wantContentType: "text/plain; charset=utf-8", wantAllow: "GET, HEAD", wantText: "Method Not Allowed"},
 		{name: "Fiber handler: POST on a GET route is 405", config: fiberErrorHandler, method: "POST", target: "/items",
 			wantStatus: 405, wantContentType: "text/plain; charset=utf-8", wantAllow: "GET, HEAD", wantText: "Method Not Allowed"},
-		{name: "Fiber handler: unknown method is 400", config: fiberErrorHandler, method: "FOO", target: "/items",
-			wantStatus: 400, wantContentType: "text/plain; charset=utf-8", wantText: "Invalid http method"},
+		{name: "Fiber handler: unknown method is 501", config: fiberErrorHandler, method: "FOO", target: "/items",
+			wantStatus: 501, wantContentType: "text/plain; charset=utf-8", wantText: "Not Implemented"},
 		{name: "Fiber handler: unknown path is 404", config: fiberErrorHandler, method: "GET", target: "/missing",
-			wantStatus: 404, wantContentType: "text/plain; charset=utf-8", wantText: "Cannot GET /missing"},
+			wantStatus: 404, wantContentType: "text/plain; charset=utf-8", wantText: "Not Found"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -515,21 +515,29 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 		wantStatus         int
 		wantStatusField    string
 		wantMessagePattern string
+		wantMetric         string
+		wantLogPattern     string
 	}{
 		{
 			name:       "declared body over BodyLimit is 413",
 			request:    rawRequest("POST", "/ok", addr, "X-Request-Id: protocol-error-request", "Content-Length: 2048"),
 			wantStatus: 413, wantStatusField: "413", wantMessagePattern: `^Request Entity Too Large$`,
+			wantMetric:     "method=post path=/ status=413",
+			wantLogPattern: `\[request_id=protocol-error-request\].*\[class=errors\].*Request Entity Too Large`,
 		},
 		{
 			name:       "request head over ReadBufferSize is 431",
 			request:    paddedRequest(addr, 10240, false),
 			wantStatus: 431, wantStatusField: "431", wantMessagePattern: `^Request Header Fields Too Large$`,
+			wantMetric:     "method=get path=/ status=431",
+			wantLogPattern: `\[request_id=[0-9.]+\].*\[class=errors\].*Request Header Fields Too Large`,
 		},
 		{
 			name:       "malformed Content-Length is 400",
 			request:    rawRequest("GET", "/ok", addr, "X-Request-Id: protocol-error-request", "Content-Length: abc"),
 			wantStatus: 400, wantStatusField: "400", wantMessagePattern: `cannot parse content-length`,
+			wantMetric:     "method=get path=/ status=400",
+			wantLogPattern: `\[request_id=[0-9.]+\].*\[class=errors\].*cannot parse content-length`,
 		},
 	}
 	for _, tt := range tests {
@@ -546,12 +554,16 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 			assert.Equal(t, "TEST-0001", response.Code)
 			assert.Equal(t, tt.wantStatusField, response.Status)
 			assert.Regexp(t, tt.wantMessagePattern, response.Message)
-			assert.Empty(t, tracing.spans.GetSpans(), "spans exported for the refused request")
-			series, err := requestStatusSeries(registry)
-			require.NoError(t, err)
-			assert.Empty(t, series, "request metrics recorded for the refused request")
-			assert.Regexp(t, `\[request_id=-\] \[tenant_id=-\] \[thread=-\] \[class=errors\]`, output.text(),
-				"error log line written by DefaultErrorHandler")
+			spans := tracing.spans.GetSpans()
+			if assert.Len(t, spans, 1, "spans exported for the refused request") {
+				assert.Equal(t, "/", spans[0].Name)
+			}
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				series, err := requestStatusSeries(registry)
+				assert.NoError(c, err)
+				assert.Equal(c, float64(1), series[tt.wantMetric], "request metrics %v", series)
+			}, 5*time.Second, 20*time.Millisecond)
+			assert.Regexp(t, tt.wantLogPattern, output.text(), "error log line written by DefaultErrorHandler")
 		})
 	}
 }
