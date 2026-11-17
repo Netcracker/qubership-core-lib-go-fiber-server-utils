@@ -4,3 +4,4 @@ deprecated:
     patterns:
       - /deprecated-api/v1/** [GET PUT DELETE]
       - /deprecated-api/v2/**
+      - /deprecated-api/exact/items [GET]

@@ -235,6 +235,14 @@ func TestDeprecatedApiBlocking(t *testing.T) {
 		{name: "percent-encoded letter is declined as the normalized path", method: "GET", target: "/deprecated-api/%761/items",
 			wantStatus: 404, wantContentType: "application/json",
 			wantTMF: declined("GET", "/deprecated-api/v1/items", "[GET PUT DELETE]", "/deprecated-api/v1/**")},
+		{name: "exact pattern is declined", method: "GET", target: "/deprecated-api/exact/items",
+			wantStatus: 404, wantContentType: "application/json",
+			wantTMF: declined("GET", "/deprecated-api/exact/items", "[GET]", "/deprecated-api/exact/items")},
+		{name: "query string on an exact pattern is declined by the path", method: "GET", target: "/deprecated-api/exact/items?x=1",
+			wantStatus: 404, wantContentType: "application/json",
+			wantTMF: declined("GET", "/deprecated-api/exact/items?x=1", "[GET]", "/deprecated-api/exact/items")},
+		{name: "trailing slash on an exact pattern is served", method: "GET", target: "/deprecated-api/exact/items/",
+			wantStatus: 200, wantContentType: "text/plain; charset=utf-8", wantText: "ok"},
 		{name: "path outside the patterns is served", method: "GET", target: "/api/v1/items",
 			wantStatus: 200, wantContentType: "text/plain; charset=utf-8", wantText: "ok"},
 	}
@@ -259,6 +267,7 @@ func TestDeprecatedApiLogsDisabledRoutesOnListen(t *testing.T) {
 	serveDeprecatedApiApp(t)
 
 	want := "Disabling the following deprecated paths: \n" +
+		"/deprecated-api/exact/items [GET]\n" +
 		"/deprecated-api/v1/items [GET,PUT,DELETE]\n" +
 		"/deprecated-api/v1/items/:id [GET]\n" +
 		"/deprecated-api/v2/items [GET,HEAD]"
@@ -594,6 +603,7 @@ func serveDeprecatedApiApp(t *testing.T) string {
 	app.Post("/deprecated-api/v1/items", ok)
 	app.Get("/deprecated-api/v1/items/:id", ok)
 	app.Get("/deprecated-api/v2/items", ok)
+	app.Get("/deprecated-api/exact/items", ok)
 	app.Get("/api/v1/items", ok)
 	return serve(t, app)
 }
