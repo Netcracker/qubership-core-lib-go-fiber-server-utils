@@ -363,8 +363,8 @@ This handler
 This library allows to disable REST API in a Fiber go microservice. This allows to make deprecated REST endpoints return
 TMF error responses with 404 HTTP status code and predefined error code NC-COMMON-2101 as if endpoint has been already removed.
 Deprecated REST API is the set of REST endpoints specified as ant path patterns via property 'deprecated.api.patterns' 
-provided in application.yaml file. A request is declined when a pattern matches either the request URI as received or
-the normalized path that the router matches.
+provided in application.yaml file. A request is declined when a pattern matches its request URI or its path without the
+query string.
 
 ```go
 import 	(
@@ -504,6 +504,7 @@ Version 3 of this library is built on Fiber v3, and its public API exposes Fiber
    | A path no route matches | `404`, error text `Cannot GET /path` | `404`, error text `Not Found` |
    | An unknown HTTP method, such as `FOO` | `400`, body `Invalid http method` | `501`, body `Not Implemented` |
    | A `QUERY` request | `400`, body `Invalid http method` | Routed like any other method, for example `405` with `Allow` on a path that has only `GET` routes |
+   | A request with a query string to a path that an exact `deprecated.api.patterns` entry disables | Served: the pattern does not match the URI with its query string | Declined with `404` and `NC-COMMON-2101` |
    | A request the server refuses before routing: a body over `BodyLimit` (`413`), headers over `ReadBufferSize` (`431`), a malformed request (`400`) | Only the error handler runs | The middleware registered with `app.Use` runs before the error handler (see below) |
 
    With `errors.DefaultErrorHandler`, the error text is the `message` field of the TMF response. A request with an

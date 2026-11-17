@@ -105,7 +105,7 @@ func (p *DisabledUrlPatterns) disableDeprecatedApiHandler(ctx fiber.Ctx) error {
 	reqUri := string(ctx.Request().RequestURI())
 	reqMethod := ctx.Method()
 	antPath, methods := p.getDisabledPathAndMethods(reqUri, reqMethod)
-	// The router matches the normalized path, so check it too: the raw URI can spell a disabled path differently.
+	// RequestURI keeps the query string, which an exact pattern does not match; c.Path() is the path the router matches.
 	if methods == nil {
 		antPath, methods = p.getDisabledPathAndMethods(ctx.Path(), reqMethod)
 	}

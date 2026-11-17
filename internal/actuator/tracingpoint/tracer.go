@@ -121,8 +121,8 @@ func hasUntracedPrefix(path string) bool {
 func hostAttributes(c fiber.Ctx) []trace.SpanStartOption {
 	logger.Debug("Start creating host attributes")
 	options := []trace.SpanStartOption{}
-	// c.Host keeps the port of the Host header, which net.host.port is read from; c.Hostname drops it.
 	hostIP, hostName, hostPort := "", "", 0
+	// c.Host keeps the port of the Host header, which net.host.port is read from; c.Hostname drops it.
 	for _, someHost := range []string{c.Host(), string(c.Request().Header.Peek("Host")), string(c.Request().Host())} {
 		hostPart := ""
 		if idx := strings.LastIndex(someHost, ":"); idx >= 0 {
