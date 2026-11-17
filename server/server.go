@@ -22,6 +22,7 @@ func StartServer(app *fiber.App, listenAddressKey string, config ...fiber.Listen
 
 func StartServerOnAddress(app *fiber.App, listenAddress string, config ...fiber.ListenConfig) {
 	if utils.IsTlsEnabled() {
+		// tcp4 is also the default of fiber.ListenConfig.ListenerNetwork, so the TLS and plain listeners bind the same network.
 		network := fiber.NetworkTCP4
 		if len(config) > 0 && config[0].ListenerNetwork != "" {
 			network = config[0].ListenerNetwork

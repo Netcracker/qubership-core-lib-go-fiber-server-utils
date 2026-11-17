@@ -105,6 +105,7 @@ func (p *DisabledUrlPatterns) disableDeprecatedApiHandler(ctx fiber.Ctx) error {
 	reqUri := string(ctx.Request().RequestURI())
 	reqMethod := ctx.Method()
 	antPath, methods := p.getDisabledPathAndMethods(reqUri, reqMethod)
+	// The router matches the normalized path, so check it too: the raw URI can spell a disabled path differently.
 	if methods == nil {
 		antPath, methods = p.getDisabledPathAndMethods(ctx.Path(), reqMethod)
 	}
@@ -112,6 +113,7 @@ func (p *DisabledUrlPatterns) disableDeprecatedApiHandler(ctx fiber.Ctx) error {
 		status := fiber.StatusNotFound
 		response := CreateErrorResponse(reqMethod, reqUri, methods, antPath, status)
 		ctx.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		// Keep Content-Type at application/json: c.JSON adds "; charset=utf-8" by default.
 		return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
 	}
 	return ctx.Next()

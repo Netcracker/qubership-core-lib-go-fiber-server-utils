@@ -23,6 +23,7 @@ func addEndpoint(logLevelService loglevel.LogLevelService) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		data, err := logLevelService.GetLogLevels()
 		if err == nil {
+			// Keep Content-Type at application/json: c.JSON adds "; charset=utf-8" by default.
 			return c.Status(http.StatusOK).JSON(data, fiber.MIMEApplicationJSON)
 		} else {
 			return c.Status(http.StatusInternalServerError).SendString(err.Error())
