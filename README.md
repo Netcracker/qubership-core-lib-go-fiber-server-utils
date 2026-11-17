@@ -503,11 +503,17 @@ Version 3 of this library is built on Fiber v3, and its public API exposes Fiber
    | --- | --- | --- |
    | A path no route matches | `404`, error text `Cannot GET /path` | `404`, error text `Not Found` |
    | An unknown HTTP method, such as `FOO` | `400`, body `Invalid http method` | `501`, body `Not Implemented` |
+   | A `QUERY` request | `400`, body `Invalid http method` | Routed like any other method, for example `405` with `Allow` on a path that has only `GET` routes |
    | A request the server refuses before routing: a body over `BodyLimit` (`413`), headers over `ReadBufferSize` (`431`), a malformed request (`400`) | Only the error handler runs | The middleware registered with `app.Use` runs before the error handler (see below) |
 
-   With `errors.DefaultErrorHandler`, the error text is the `message` field of the TMF response. For a request refused
-   before routing, the status and the body stay the same, and the middleware of this library now handles it like any
-   other request: the error log line carries its `request_id`, the tracer exports a span named `/`, and the
-   `http_request_status` metric counts the request under path `/`. Your own `app.Use` middleware runs for it as well.
+   With `errors.DefaultErrorHandler`, the error text is the `message` field of the TMF response. A request with an
+   unknown method reaches no middleware, handler, or error handler on either version. `501` is a server error status, so
+   metrics that count `5xx` responses at a mesh sidecar or an ingress count such requests, for example during a method
+   scan.
+
+   For a request refused before routing, the status and the body stay the same, and the middleware of this library
+   now handles it like any other request: the error log line carries its `request_id`, the tracer exports a span named
+   `/`, and the `http_request_status` metric counts the request under path `/`. Your own `app.Use` middleware runs for
+   it as well.
 
 For the changes in Fiber itself, see the [Fiber v3 migration guide](https://docs.gofiber.io/whats_new).
