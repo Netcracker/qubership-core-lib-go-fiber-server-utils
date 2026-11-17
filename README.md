@@ -494,4 +494,14 @@ Version 3 of this library is built on Fiber v3, and its public API exposes Fiber
    `application/json`; pass `fiber.MIMEApplicationJSON` as the second argument of `c.JSON` to keep it in your handlers
    and in `Handle` methods.
 
+5. Expect these responses to change on Fiber v3:
+
+   | Request | v2 | v3 |
+   | --- | --- | --- |
+   | A path no route matches | `404`, error text `Cannot GET /path` | `404`, error text `Not Found` |
+   | An unknown HTTP method, such as `FOO` | `400`, body `Invalid http method` | `501`, body `Not Implemented` |
+   | A request refused before routing (`400`, `408`, `413`, `431`, `501`) | the error handler runs alone | the middleware registered with `Use` runs first: the error log line carries `request_id`, a span named `/` is exported, and `http_request_status` counts the request under path `/` |
+
+   With `errors.DefaultErrorHandler`, the error text is the `message` field of the TMF response.
+
 For the changes in Fiber itself, see the [Fiber v3 migration guide](https://docs.gofiber.io/whats_new).
