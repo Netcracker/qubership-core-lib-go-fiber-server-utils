@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 	"github.com/stretchr/testify/require"
@@ -47,13 +47,13 @@ func NewCustomErr(detail string) *CustomErr {
 	return errs.New(CustomErr{CustomField: detail}, errs.ErrorCode{Code: "custom test error", Title: "custom test title"}, detail)
 }
 
-func (e *CustomErr) Handle(ctx *fiber.Ctx) error {
+func (e *CustomErr) Handle(ctx fiber.Ctx) error {
 	status := http.StatusBadRequest
 	response := tmf.NewResponseBuilder(e).
 		Meta(map[string]interface{}{"custom": e.CustomField}).
 		Status(status).
 		Build()
-	return ctx.Status(status).JSON(response)
+	return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
 }
 
 func TestDefaultErrorHandlerCustomErr(t *testing.T) {
@@ -94,7 +94,7 @@ func newCustomErrWithBadHandleFunc(detail string) *customErrWithBadHandleFunc {
 	return &customErr
 }
 
-func (e *customErrWithBadHandleFunc) Handle(ctx *fiber.Ctx) error {
+func (e *customErrWithBadHandleFunc) Handle(ctx fiber.Ctx) error {
 	return errors.New("test error from Handle()")
 }
 

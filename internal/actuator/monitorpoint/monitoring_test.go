@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/monitoring"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -32,7 +32,7 @@ func TestPlatformPrometheusMiddleware_MetricsChanged(t *testing.T) {
 	assert.Nil(t, err)
 	app.Use(PlatformPrometheusMiddleware(platformPrometheusMetrics))
 
-	app.Get("/test", func(ctx *fiber.Ctx) error { return ctx.SendStatus(200) })
+	app.Get("/test", func(ctx fiber.Ctx) error { return ctx.SendStatus(200) })
 	app.Test(httptest.NewRequest("GET", "/test", nil))
 	time.Sleep(100 * time.Millisecond) // wait for updating value of metrics
 	labels := []string{"200", "get", "/test"}
@@ -53,7 +53,7 @@ func TestPlatformPrometheusMiddleware_UsesPathTemplate(t *testing.T) {
 	assert.Nil(t, err)
 	app.Use(PlatformPrometheusMiddleware(platformPrometheusMetrics))
 
-	app.Get("/test/:id", func(ctx *fiber.Ctx) error {
+	app.Get("/test/:id", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(200)
 	})
 

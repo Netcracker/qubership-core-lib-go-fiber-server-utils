@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,11 +55,11 @@ func TestStartServerOnAddressListenerNetwork(t *testing.T) {
 				enableTLS(t)
 			}
 			port := freePort(t)
-			app := fiber.New(fiber.Config{Network: tt.network, DisableStartupMessage: true})
-			app.Get("/ok", func(c *fiber.Ctx) error {
+			app := fiber.New()
+			app.Get("/ok", func(c fiber.Ctx) error {
 				return c.SendString("ok")
 			})
-			go StartServerOnAddress(app, ":"+strconv.Itoa(port))
+			go StartServerOnAddress(app, ":"+strconv.Itoa(port), fiber.ListenConfig{ListenerNetwork: tt.network, DisableStartupMessage: true})
 			t.Cleanup(func() { _ = app.Shutdown() })
 			client := testClient()
 			scheme := "http"

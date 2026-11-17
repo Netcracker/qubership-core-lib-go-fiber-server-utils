@@ -15,13 +15,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/apiversion"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
-	serverErrors "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/errors"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+	serverErrors "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/errors"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/prometheus/client_golang/prometheus"
@@ -94,7 +94,7 @@ func TestRoutingErrorsForUnmatchedRequests(t *testing.T) {
 			prepareBuilderEnvironment(t)
 			app, err := New(tt.config).Process()
 			require.NoError(t, err)
-			app.Get("/items", func(c *fiber.Ctx) error {
+			app.Get("/items", func(c fiber.Ctx) error {
 				return c.SendString("ok")
 			})
 			addr := serve(t, app)
@@ -117,8 +117,8 @@ func TestRequestContextFromIncomingHeaders(t *testing.T) {
 	prepareBuilderEnvironment(t)
 	app, err := New().Process()
 	require.NoError(t, err)
-	app.Get("/context", func(c *fiber.Ctx) error {
-		ctx := c.UserContext()
+	app.Get("/context", func(c fiber.Ctx) error {
+		ctx := c.Context()
 		return c.SendString(getRequestId(ctx) + " " + getTenantId(ctx) + " " + getXChannelRequestId(ctx))
 	})
 	addr := serve(t, app)
@@ -269,10 +269,10 @@ func TestTracingSpanForRoutedRequest(t *testing.T) {
 		WithTracer(tracing).
 		Process()
 	require.NoError(t, err)
-	app.Get("/items/:id", func(c *fiber.Ctx) error {
+	app.Get("/items/:id", func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	})
-	app.Get("/broken", func(c *fiber.Ctx) error {
+	app.Get("/broken", func(c fiber.Ctx) error {
 		return errors.New("broken handler")
 	})
 	addr := serve(t, app)
@@ -347,7 +347,7 @@ func TestTracingSkipsUntracedPaths(t *testing.T) {
 		Process()
 	require.NoError(t, err)
 	for _, path := range []string{"/static/app.js", "/skip-me", "/traced"} {
-		app.Get(path, func(c *fiber.Ctx) error {
+		app.Get(path, func(c fiber.Ctx) error {
 			return c.SendString("ok")
 		})
 	}
@@ -379,7 +379,7 @@ func TestTracingContinuesB3Parent(t *testing.T) {
 	tracing := newInMemoryTracing(t)
 	app, err := New().WithTracer(tracing).Process()
 	require.NoError(t, err)
-	app.Get("/traced", func(c *fiber.Ctx) error {
+	app.Get("/traced", func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	})
 	addr := serve(t, app)
@@ -401,13 +401,13 @@ func TestPrometheusMiddlewareRecordsMatchedRoutesOnly(t *testing.T) {
 		WithPrometheus("/prometheus").
 		Process()
 	require.NoError(t, err)
-	app.Get("/items", func(c *fiber.Ctx) error {
+	app.Get("/items", func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	})
-	app.Get("/items/:id", func(c *fiber.Ctx) error {
+	app.Get("/items/:id", func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	})
-	app.Get("/broken", func(c *fiber.Ctx) error {
+	app.Get("/broken", func(c fiber.Ctx) error {
 		return errors.New("broken handler")
 	})
 	addr := serve(t, app)
@@ -469,7 +469,7 @@ func TestReadBufferSizeLimitsRequestHeaders(t *testing.T) {
 	prepareBuilderEnvironment(t)
 	app, err := New(fiber.Config{ErrorHandler: serverErrors.DefaultErrorHandler(unknownErrorCode)}).Process()
 	require.NoError(t, err)
-	app.Get("/ok", func(c *fiber.Ctx) error {
+	app.Get("/ok", func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	})
 	addr := serve(t, app)
@@ -504,7 +504,7 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 		WithPrometheus("/prometheus").
 		Process()
 	require.NoError(t, err)
-	app.All("/ok", func(c *fiber.Ctx) error {
+	app.All("/ok", func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	})
 	addr := serve(t, app)
@@ -568,7 +568,7 @@ func serveDeprecatedApiApp(t *testing.T) string {
 		WithDeprecatedApiSwitchedOff().
 		Process()
 	require.NoError(t, err)
-	ok := func(c *fiber.Ctx) error {
+	ok := func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	}
 	app.Get("/deprecated-api/v1/items", ok)

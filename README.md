@@ -32,7 +32,7 @@ and create `fiber.App` instance that has all necessary configuration for correct
 
 To get `fiber-server-utils` use
 ```go
- go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2@<latest released version>
+ go get github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3@<latest released version>
 ```
 
 List of all released versions may be found [here](https://github.com/netcracker/qubership-core-lib-go-fiber-server-utils/tags)
@@ -62,7 +62,7 @@ After properties initialization you should register security implemention - dumm
 ```go
 import (
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
-  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 )
 
 func init() {
@@ -102,10 +102,10 @@ config := fiber.Config{
 app := fiberserver.New(config).Process() // build fiber.App without any cloud-core specific configuration
 ```
 
-> **_NOTE:_**  Default fiber configuration allows working only with IPv4.
-> If you need to use IPv4 and IPv6, add such configuration to app builder initialization
+> **_NOTE:_**  By default the server listens on IPv4 only.
+> To accept IPv4 and IPv6, pass the listener network when you start the server:
 > 
-> appBuilder, err := fiberserver.New(fiber.Config{Network: fiber.NetworkTCP})
+> server.StartServer(app, "http.server.bind", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})
 
 
 #### WithHealth
@@ -294,15 +294,19 @@ cancel() // graceful shutdown
 based on registered contexts and request data. List of registered contexts can be found [here](https://github.com/netcracker/qubership-core-lib-go/blob/main/context-propagation/README.md#base-contexts) 
  
 
-In order to obtain populated `context.Context` object, you should call `fiber.Ctx#UserContext` method in your handler. For example:
+To obtain the populated `context.Context`, call `Context()` on `fiber.Ctx` in your handler. For example:
 ```go
-app.Get("/test", func(ctx *fiber.Ctx) error {
-       ctx := ctx.UserContext()
+app.Get("/test", func(c fiber.Ctx) error {
+       ctx := c.Context()
        requestId, err := xrequestid.Of(ctx)
        ...
 })
 
 ```
+
+`fiber.Ctx` implements `context.Context` too, but its `Value` reads the request locals, not this context. Passing `c`
+where a `context.Context` is expected compiles and loses `request_id`, `tenant_id`, and the other context data; pass
+`c.Context()` instead.
 
 ### Default error handling
 To comply to REST response in ErrorCode format the following default error handling mechanism is provided via fiber-server-utils/errors/default.go
@@ -310,14 +314,13 @@ To configure your fiber server to provide error response in NC specific TMF form
 
 ```go
 import 	(
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-  fibererrors "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/errors"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+  fibererrors "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/errors"
 )
 // code for all unexpected errors for your microservice/lib must start with corresponding abbreviation followed by digital code 0001 
 // 0001 digital part of the code is reserved specifically for this purpose
 unknownErrorCode := errs.ErrorCode{Code: "YOUR-MS_OR_LIB-0001", Title: "unexpected error"}
 app, err := fiberserver.New(fiber.Config{
-    Network:      fiber.NetworkTCP,
     IdleTimeout:  30 * time.Second,
     ErrorHandler: fibererrors.DefaultErrorHandler(unknownErrorCode),
 }).Process()
@@ -326,7 +329,7 @@ app, err := fiberserver.New(fiber.Config{
 This handler 
 1) allows to process all errors of type error as unknown errors.
 2) provides default handler for all errors which implement github.com/netcracker/qubership-core-lib-go-error-handling/errors.ErrCodeErr interface
-3) provides delegation of handling particular error to its own method - func(ctx *fiber.Ctx) error. See example below:
+3) provides delegation of handling particular error to its own method - func(ctx fiber.Ctx) error. See example below:
    ```go
    import 	(
      errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
@@ -342,17 +345,17 @@ This handler
     return errs.New(CustomErr{CustomField: detail}, errs.ErrorCode{Code:  "custom test error", Title: "custom test title",}, detail)
    }
 
-   func (e *CustomErr) getMeta(ctx *fiber.Ctx) map[string]any {
+   func (e *CustomErr) getMeta(ctx fiber.Ctx) map[string]any {
     return map[string]any{ "custom": e.CustomField }
    }
    
-   func (e *CustomErr) Handle(ctx *fiber.Ctx) error {
+   func (e *CustomErr) Handle(ctx fiber.Ctx) error {
      status := http.StatusBadRequest
      response := tmf.NewResponseBuilder(e).
 		Meta(e.getMeta()).
         Status(status).
 		Build()
-	 return ctx.Status(status).JSON(response)
+	 return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
    }
    ```
 
@@ -360,15 +363,15 @@ This handler
 This library allows to disable REST API in a Fiber go microservice. This allows to make deprecated REST endpoints return
 TMF error responses with 404 HTTP status code and predefined error code NC-COMMON-2101 as if endpoint has been already removed.
 Deprecated REST API is the set of REST endpoints specified as ant path patterns via property 'deprecated.api.patterns' 
-provided in application.yaml file.
+provided in application.yaml file. A request is declined when a pattern matches either the request URI as received or
+the normalized path that the router matches.
 
 ```go
 import 	(
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/"
-  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/deprecatedapi"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/"
+  "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/deprecatedapi"
 )
 app, err := fiberserver.New(fiber.Config{
-    Network:      fiber.NetworkTCP,
     IdleTimeout:  30 * time.Second,
 // enable DeprecatedApiSwitchedOff feature. Deprecated API will be switched off only when property 'deprecated.api.disabled' = true
 }).WithDeprecatedApiSwitchedOff().Process()
@@ -411,10 +414,10 @@ package main
 import (
   "github.com/netcracker/qubership-core-lib-go/v3/configloader"
   "github.com/netcracker/qubership-core-lib-go/v3/logging"
-  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+  fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
   "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
   "github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
-  "github.com/gofiber/fiber/v2"
+  "github.com/gofiber/fiber/v3"
   "time"
 )
 
@@ -445,16 +448,50 @@ func main() {
   app.Listen(":8080")
 }
 
-func fooHandler(ctx *fiber.Ctx) error  {
-  userCtx := ctx.UserContext()
+func fooHandler(ctx fiber.Ctx) error  {
+  userCtx := ctx.Context()
   // ...
   return nil
 }
 
-func customHandler(ctx *fiber.Ctx) error  {
-  userCtx := ctx.UserContext()
+func customHandler(ctx fiber.Ctx) error  {
+  userCtx := ctx.Context()
   // ...
   return nil
 }
 ```
 
+
+## Upgrade from v2
+
+Version 3 of this library is built on Fiber v3, and its public API exposes Fiber v3 types.
+
+1. Update the module paths in `go.mod` and in the imports:
+
+   | v2 | v3 |
+   | --- | --- |
+   | `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2` | `github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3` |
+   | `github.com/gofiber/fiber/v2` | `github.com/gofiber/fiber/v3` |
+   | `github.com/gofiber/adaptor/v2` | `github.com/gofiber/fiber/v3/middleware/adaptor` |
+
+2. Update the code that uses the library API:
+
+   | v2 | v3 |
+   | --- | --- |
+   | `func(c *fiber.Ctx) error` handlers, `security.SecurityMiddleware.GetSecurityMiddleware() func(*fiber.Ctx) error`, `Handle(ctx *fiber.Ctx) error` on errors for `errors.DefaultErrorHandler` | the same with `fiber.Ctx` |
+   | `c.UserContext()`, `c.SetUserContext(ctx)` | `c.Context()`, `c.SetContext(ctx)` |
+   | `c.Context()` for `*fasthttp.RequestCtx` | `c.RequestCtx()` |
+   | `fiberserver.New(fiber.Config{Network: fiber.NetworkTCP})` | `server.StartServer(app, key, fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})` |
+
+   `server.StartServer` and `server.StartServerOnAddress` take an optional `fiber.ListenConfig`. Without it the server
+   listens on IPv4 only, so a service that set `Network: fiber.NetworkTCP` passes `ListenerNetwork: fiber.NetworkTCP`
+   there to keep IPv6.
+
+3. Pass `c.Context()`, never `c`, where a `context.Context` is expected (see
+   [How to obtain context object](#how-to-obtain-context-object)).
+
+4. `c.JSON` in Fiber v3 sends `Content-Type: application/json; charset=utf-8`. The responses of this library keep
+   `application/json`; pass `fiber.MIMEApplicationJSON` as the second argument of `c.JSON` to keep it in your handlers
+   and in `Handle` methods.
+
+For the changes in Fiber itself, see the [Fiber v3 migration guide](https://docs.gofiber.io/whats_new).

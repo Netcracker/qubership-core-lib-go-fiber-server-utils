@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 	"github.com/stretchr/testify/assert"
@@ -64,7 +64,7 @@ func TestDefaultErrorHandlerResponseOverHTTP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := fiber.New(fiber.Config{ErrorHandler: DefaultErrorHandler(unknownErrorCode)})
-			app.Get("/fail", func(c *fiber.Ctx) error {
+			app.Get("/fail", func(c fiber.Ctx) error {
 				return tt.handlerErr
 			})
 
