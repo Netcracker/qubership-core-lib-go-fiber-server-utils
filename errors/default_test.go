@@ -53,7 +53,7 @@ func (e *CustomErr) Handle(ctx fiber.Ctx) error {
 		Meta(map[string]interface{}{"custom": e.CustomField}).
 		Status(status).
 		Build()
-	return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
+	return ctx.Status(status).JSON(response)
 }
 
 func TestDefaultErrorHandlerCustomErr(t *testing.T) {
@@ -77,7 +77,7 @@ func TestDefaultErrorHandlerCustomErr(t *testing.T) {
 	assert.Equal(strconv.Itoa(http.StatusBadRequest), *tmfResponse.Status)
 	assert.Equal("custom test details", (*tmfResponse.Meta)["custom"].(string))
 	assert.Equal(tmf.TypeV1_0, tmfResponse.Type)
-	assert.Equal(fiber.MIMEApplicationJSON, string(response.Header.ContentType()))
+	assert.Equal(fiber.MIMEApplicationJSONCharsetUTF8, string(response.Header.ContentType()))
 }
 
 type customErrWithBadHandleFunc struct {
