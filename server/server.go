@@ -3,7 +3,7 @@ package server
 import (
 	"crypto/tls"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
@@ -11,26 +11,31 @@ import (
 
 var logger = logging.GetLogger("server")
 
-func StartServer(app *fiber.App, listenAddressKey string) {
+func StartServer(app *fiber.App, listenAddressKey string, config ...fiber.ListenConfig) {
 	defaultListenAddress := ":8080"
 	if utils.IsTlsEnabled() {
 		defaultListenAddress = ":8443"
 	}
 	listenAddress := configloader.GetOrDefaultString(listenAddressKey, defaultListenAddress)
-	StartServerOnAddress(app, listenAddress)
+	StartServerOnAddress(app, listenAddress, config...)
 }
 
-func StartServerOnAddress(app *fiber.App, listenAddress string) {
+func StartServerOnAddress(app *fiber.App, listenAddress string, config ...fiber.ListenConfig) {
 	if utils.IsTlsEnabled() {
-		ln, err := tls.Listen(app.Config().Network, listenAddress, utils.GetTlsConfig())
+		// tcp4 is also the default of fiber.ListenConfig.ListenerNetwork, so the TLS and plain listeners bind the same network.
+		network := fiber.NetworkTCP4
+		if len(config) > 0 && config[0].ListenerNetwork != "" {
+			network = config[0].ListenerNetwork
+		}
+		ln, err := tls.Listen(network, listenAddress, utils.GetTlsConfig())
 		if err != nil {
 			logger.Panic("Cannot create listener on address=%s, error=%+v", listenAddress, err)
 		}
-		if err := app.Listener(ln); err != nil {
+		if err := app.Listener(ln, config...); err != nil {
 			logger.Panic("Cannot start tls listener on address=%s, error=%+v", listenAddress, err)
 		}
 	} else {
-		if err := app.Listen(listenAddress); err != nil {
+		if err := app.Listen(listenAddress, config...); err != nil {
 			logger.Panic("Cannot start listener on address=%s, error=%+v", listenAddress, err)
 		}
 	}

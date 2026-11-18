@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/vibrantbyte/go-antpath/antpath"
@@ -101,15 +101,19 @@ func getDisabledEndpoints(app *fiber.App, urlPatterns *DisabledUrlPatterns) []st
 	return disabledRoutesLines
 }
 
-func (p *DisabledUrlPatterns) disableDeprecatedApiHandler(ctx *fiber.Ctx) error {
+func (p *DisabledUrlPatterns) disableDeprecatedApiHandler(ctx fiber.Ctx) error {
 	reqUri := string(ctx.Request().RequestURI())
 	reqMethod := ctx.Method()
 	antPath, methods := p.getDisabledPathAndMethods(reqUri, reqMethod)
+	// RequestURI keeps the query string, which an exact pattern does not match; c.Path() is the path the router matches.
+	if methods == nil {
+		antPath, methods = p.getDisabledPathAndMethods(ctx.Path(), reqMethod)
+	}
 	if methods != nil {
 		status := fiber.StatusNotFound
 		response := CreateErrorResponse(reqMethod, reqUri, methods, antPath, status)
 		ctx.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-		return ctx.Status(status).JSON(response)
+		return ctx.Status(status).JSON(response, fiber.MIMEApplicationJSON)
 	}
 	return ctx.Next()
 }
