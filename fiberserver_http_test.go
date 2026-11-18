@@ -543,28 +543,28 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 		wantStatus         int
 		wantStatusField    string
 		wantMessagePattern string
-		wantMetric         string
+		refusedMetric      string
 		wantLogPattern     string
 	}{
 		{
 			name:       "declared body over BodyLimit is 413",
 			request:    rawRequest("POST", "/ok", addr, "X-Request-Id: protocol-error-request", "Content-Length: 2048"),
 			wantStatus: 413, wantStatusField: "413", wantMessagePattern: `^Request Entity Too Large$`,
-			wantMetric:     "method=post path=/ status=413",
+			refusedMetric:  "method=post path=/ status=413",
 			wantLogPattern: `\[request_id=protocol-error-request\].*\[class=errors\].*Request Entity Too Large`,
 		},
 		{
 			name:       "request head over ReadBufferSize is 431",
 			request:    paddedRequest(addr, 10240, false),
 			wantStatus: 431, wantStatusField: "431", wantMessagePattern: `^Request Header Fields Too Large$`,
-			wantMetric:     "method=get path=/ status=431",
+			refusedMetric:  "method=get path=/ status=431",
 			wantLogPattern: `\[request_id=[0-9.]+\].*\[class=errors\].*Request Header Fields Too Large`,
 		},
 		{
 			name:       "malformed Content-Length is 400",
 			request:    rawRequest("GET", "/ok", addr, "X-Request-Id: protocol-error-request", "Content-Length: abc"),
 			wantStatus: 400, wantStatusField: "400", wantMessagePattern: `cannot parse content-length`,
-			wantMetric:     "method=get path=/ status=400",
+			refusedMetric:  "method=get path=/ status=400",
 			wantLogPattern: `\[request_id=[0-9.]+\].*\[class=errors\].*cannot parse content-length`,
 		},
 	}
@@ -582,15 +582,10 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 			assert.Equal(t, "TEST-0001", response.Code)
 			assert.Equal(t, tt.wantStatusField, response.Status)
 			assert.Regexp(t, tt.wantMessagePattern, response.Message)
-			spans := tracing.spans.GetSpans()
-			if assert.Len(t, spans, 1, "spans exported for the refused request") {
-				assert.Equal(t, "/", spans[0].Name)
-			}
-			assert.EventuallyWithT(t, func(c *assert.CollectT) {
-				series, err := requestStatusSeries(registry)
-				assert.NoError(c, err)
-				assert.Equal(c, float64(1), series[tt.wantMetric], "request metrics %v", series)
-			}, 5*time.Second, 20*time.Millisecond)
+			assert.Empty(t, tracing.spans.GetSpans(), "spans exported for the refused request")
+			series, err := requestStatusSeries(registry)
+			require.NoError(t, err)
+			assert.NotContains(t, series, tt.refusedMetric, "request metrics")
 			assert.Regexp(t, tt.wantLogPattern, output.text(), "error log line written by DefaultErrorHandler")
 		})
 	}

@@ -32,6 +32,9 @@ func EnablePrometheus(url string, config *monitoring.Config, app *fiber.App) err
 
 func PlatformPrometheusMiddleware(platformPrometheusMetrics *monitoring.PlatformPrometheusMetrics) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
+		if refusedBeforeRouting(ctx) {
+			return ctx.Next()
+		}
 		begin := time.Now()
 		if err := ctx.Next(); err != nil {
 			return err
@@ -47,4 +50,12 @@ func PlatformPrometheusMiddleware(platformPrometheusMetrics *monitoring.Platform
 
 		return nil
 	}
+}
+
+// refusedBeforeRouting reports whether the server refused the request while reading it: a body over BodyLimit,
+// headers over ReadBufferSize, or a malformed Content-Length. Fiber v3 sets the error status before it runs the
+// middleware for such a request, so a status of 400 or above on entry marks it. Such a request has no route to name a
+// span or label a metric with, and Fiber v2 did not run the middleware for it at all.
+func refusedBeforeRouting(c fiber.Ctx) bool {
+	return c.Response().StatusCode() >= fiber.StatusBadRequest
 }

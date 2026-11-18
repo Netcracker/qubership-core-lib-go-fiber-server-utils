@@ -47,7 +47,7 @@ func EnableOtelTracing(exporter tracing.OpenTelemetryExporter, app *fiber.App, u
 
 func NewOtelTracingMiddleware(serverName string, untraced map[string]struct{}) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		if shouldSkipTracing(c, untraced) {
+		if shouldSkipTracing(c, untraced) || refusedBeforeRouting(c) {
 			return c.Next()
 		}
 
@@ -221,4 +221,12 @@ func extractB3HeadersToContext(parentCtx context.Context, request *fasthttp.Requ
 		return contextWithSpanContext
 	}
 	return parentCtx
+}
+
+// refusedBeforeRouting reports whether the server refused the request while reading it: a body over BodyLimit,
+// headers over ReadBufferSize, or a malformed Content-Length. Fiber v3 sets the error status before it runs the
+// middleware for such a request, so a status of 400 or above on entry marks it. Such a request has no route to name a
+// span or label a metric with, and Fiber v2 did not run the middleware for it at all.
+func refusedBeforeRouting(c fiber.Ctx) bool {
+	return c.Response().StatusCode() >= fiber.StatusBadRequest
 }
