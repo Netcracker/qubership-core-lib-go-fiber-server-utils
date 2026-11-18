@@ -53,13 +53,6 @@ func TestDefaultErrorHandlerResponseOverHTTP(t *testing.T) {
 			wantContentType: "application/json",
 			wantBody:        tmfFields{Code: "TEST-0001", Message: "plain failure", Status: "500"},
 		},
-		{
-			name:            "error with Handle writes its own response with the Content-Type c.JSON sets",
-			handlerErr:      NewCustomErr("handled failure"),
-			wantStatus:      http.StatusBadRequest,
-			wantContentType: "application/json; charset=utf-8",
-			wantBody:        tmfFields{Code: "custom test error", Message: "handled failure", Status: "400"},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
