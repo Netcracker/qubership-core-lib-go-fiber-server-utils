@@ -438,9 +438,12 @@ func TestPrometheusMiddlewareRecordsMatchedRoutesOnly(t *testing.T) {
 	app.Get("/broken", func(c fiber.Ctx) error {
 		return errors.New("broken handler")
 	})
+	app.Get("/unavailable", func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	})
 	addr := serve(t, app)
 
-	for _, target := range []string{"/broken", "/missing", "/items", "/items/42"} {
+	for _, target := range []string{"/broken", "/missing", "/items", "/items/42", "/unavailable"} {
 		send(t, addr, rawRequest("GET", target, addr))
 	}
 
@@ -448,8 +451,9 @@ func TestPrometheusMiddlewareRecordsMatchedRoutesOnly(t *testing.T) {
 		series, err := requestStatusSeries(registry)
 		assert.NoError(c, err)
 		assert.Equal(c, map[string]float64{
-			"method=get path=/items status=200":     1,
-			"method=get path=/items/:id status=200": 1,
+			"method=get path=/items status=200":       1,
+			"method=get path=/items/:id status=200":   1,
+			"method=get path=/unavailable status=503": 1,
 		}, series)
 	}, 5*time.Second, 20*time.Millisecond)
 }
@@ -571,6 +575,8 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing.spans.Reset()
+			before, err := requestStatusSeries(registry)
+			require.NoError(t, err)
 			output := captureStdout(t)
 
 			result := send(t, addr, tt.request)
@@ -583,9 +589,16 @@ func TestProtocolErrorsBeforeRouting(t *testing.T) {
 			assert.Equal(t, tt.wantStatusField, response.Status)
 			assert.Regexp(t, tt.wantMessagePattern, response.Message)
 			assert.Empty(t, tracing.spans.GetSpans(), "spans exported for the refused request")
-			series, err := requestStatusSeries(registry)
-			require.NoError(t, err)
-			assert.NotContains(t, series, tt.refusedMetric, "request metrics")
+			// The metrics are written asynchronously, so a routed request sent after the refused one shows when they
+			// have caught up.
+			send(t, addr, rawRequest("GET", "/ok", addr))
+			const routedMetric = "method=get path=/ok status=200"
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				series, err := requestStatusSeries(registry)
+				assert.NoError(c, err)
+				assert.Equal(c, before[routedMetric]+1, series[routedMetric], "request metrics %v", series)
+				assert.NotContains(c, series, tt.refusedMetric, "request metrics")
+			}, 5*time.Second, 20*time.Millisecond)
 			assert.Regexp(t, tt.wantLogPattern, output.text(), "error log line written by DefaultErrorHandler")
 		})
 	}
