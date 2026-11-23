@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -98,9 +99,8 @@ func TestServerListenerNetwork(t *testing.T) {
 	}
 }
 
-// StartServerOnAddress refuses every TLS field of fiber.ListenConfig. With platform TLS, Fiber used to ignore such a
-// field, so a caller that asked for client certificates through CertClientFile got a server that accepted clients
-// without one.
+// With platform TLS, Fiber ignores the TLS fields of fiber.ListenConfig, so a CertClientFile used to leave the server
+// accepting clients without a certificate.
 func TestStartServerOnAddressRefusesTLSFields(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -139,6 +139,32 @@ func TestStartServerOnAddressRefusesTLSFields(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A field that a Fiber upgrade adds to fiber.ListenConfig fails this test until it is either refused as a TLS option
+// or listed as passed on to Fiber.
+func TestListenConfigFieldsAreRefusedOrPassedOn(t *testing.T) {
+	refused := tlsFields(fiber.ListenConfig{
+		CertFile:        "server.crt",
+		CertKeyFile:     "server.key",
+		CertClientFile:  "ca.crt",
+		TLSConfig:       &tls.Config{},
+		TLSConfigFunc:   func(*tls.Config) {},
+		AutoCertManager: &autocert.Manager{},
+		TLSMinVersion:   tls.VersionTLS13,
+	})
+	passedOn := []string{
+		"BeforeServeFunc", "DisableStartupMessage", "EnablePrefork", "EnablePrintRoutes", "GracefulContext",
+		"ListenerAddrFunc", "ListenerNetwork", "PreforkLogger", "PreforkRecoverInterval", "PreforkRecoverThreshold",
+		"PreforkShutdownGracePeriod", "ShutdownTimeout", "UnixSocketFileMode",
+	}
+	configType := reflect.TypeOf(fiber.ListenConfig{})
+	var fields []string
+	for i := range configType.NumField() {
+		fields = append(fields, configType.Field(i).Name)
+	}
+
+	assert.ElementsMatch(t, fields, append(refused, passedOn...))
 }
 
 func panicValue(f func()) (recovered any) {

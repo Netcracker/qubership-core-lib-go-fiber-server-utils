@@ -22,15 +22,14 @@ func StartServer(app *fiber.App, listenAddressKey string, config ...fiber.Listen
 }
 
 // StartServerOnAddress serves app on listenAddress and blocks until the server stops. When the platform enables TLS,
-// the server uses the certificates and the client certificate policy of the platform's TLS configuration.
+// the server uses the platform's TLS configuration.
 //
-// config passes listener options such as ListenerNetwork to Fiber. TLS is configured by the platform alone, so
-// StartServerOnAddress panics if config sets CertFile, CertKeyFile, CertClientFile, TLSConfig, TLSConfigFunc,
-// AutoCertManager, or sets TLSMinVersion to a version other than TLS 1.2. It also panics if the server cannot start.
+// config passes listener options such as ListenerNetwork to Fiber. StartServerOnAddress panics if config sets a TLS
+// option other than a TLSMinVersion of TLS 1.2, or if the server cannot start.
 func StartServerOnAddress(app *fiber.App, listenAddress string, config ...fiber.ListenConfig) {
 	if len(config) > 0 {
 		if fields := tlsFields(config[0]); len(fields) > 0 {
-			logger.Panic("Cannot start server on address=%s: TLS is configured by the platform, remove %s from fiber.ListenConfig",
+			logger.Panic("Cannot start server on address=%s: fiber.ListenConfig sets the TLS options %s, but TLS is configured by the platform; leave them unset",
 				listenAddress, strings.Join(fields, ", "))
 		}
 	}
@@ -74,7 +73,7 @@ func tlsFields(config fiber.ListenConfig) []string {
 	if config.AutoCertManager != nil {
 		fields = append(fields, "AutoCertManager")
 	}
-	// Zero and TLS 1.2 both leave the minimum version of the platform's TLS configuration in effect.
+	// TLS 1.2 is the minimum version the platform's TLS configuration sets.
 	if config.TLSMinVersion != 0 && config.TLSMinVersion != tls.VersionTLS12 {
 		fields = append(fields, "TLSMinVersion")
 	}
