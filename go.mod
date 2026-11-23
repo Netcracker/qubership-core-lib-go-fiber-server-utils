@@ -4,14 +4,14 @@ go 1.26.5
 
 require (
 	github.com/gofiber/fiber/v3 v3.7.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.5
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.6
-	github.com/netcracker/qubership-core-lib-go/v3 v3.15.4
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.13.0
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.8.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.16.0
 	github.com/openzipkin/zipkin-go v0.4.3
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/stretchr/testify v1.12.1
-	github.com/valyala/fasthttp v1.78.0
+	github.com/valyala/fasthttp v1.79.0
 	github.com/vibrantbyte/go-antpath v1.1.1
 	go.opentelemetry.io/contrib/propagators/b3 v1.47.0
 	go.opentelemetry.io/otel v1.47.0
@@ -30,7 +30,7 @@ require (
 	github.com/gofiber/schema v1.9.3 // indirect
 	github.com/gofiber/utils/v2 v2.6.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/knadh/koanf/maps v0.1.3 // indirect
 	github.com/knadh/koanf/parsers/yaml v1.1.1 // indirect
 	github.com/knadh/koanf/providers/env/v2 v2.0.2 // indirect
@@ -56,7 +56,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
