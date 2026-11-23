@@ -99,8 +99,8 @@ func TestServerListenerNetwork(t *testing.T) {
 	}
 }
 
-// With platform TLS, Fiber ignores the TLS fields of fiber.ListenConfig, so a CertClientFile used to leave the server
-// accepting clients without a certificate.
+// When utils.IsTlsEnabled reports true, Fiber ignores the TLS fields of fiber.ListenConfig, so a CertClientFile used to
+// leave the server accepting clients without a certificate.
 func TestStartServerOnAddressRefusesTLSFields(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -111,7 +111,7 @@ func TestStartServerOnAddressRefusesTLSFields(t *testing.T) {
 		{name: "CertFile", config: fiber.ListenConfig{CertFile: "server.crt"}, field: "CertFile"},
 		{name: "CertKeyFile", config: fiber.ListenConfig{CertKeyFile: "server.key"}, field: "CertKeyFile"},
 		{name: "CertClientFile", config: fiber.ListenConfig{CertClientFile: "ca.crt"}, field: "CertClientFile"},
-		{name: "CertClientFile with platform TLS", tls: true, config: fiber.ListenConfig{CertClientFile: "ca.crt"}, field: "CertClientFile"},
+		{name: "CertClientFile with TLS enabled", tls: true, config: fiber.ListenConfig{CertClientFile: "ca.crt"}, field: "CertClientFile"},
 		{name: "TLSConfig", config: fiber.ListenConfig{TLSConfig: &tls.Config{ClientAuth: tls.RequireAndVerifyClientCert}}, field: "TLSConfig"},
 		{name: "TLSConfigFunc", config: fiber.ListenConfig{TLSConfigFunc: func(*tls.Config) {}}, field: "TLSConfigFunc"},
 		{name: "AutoCertManager", config: fiber.ListenConfig{AutoCertManager: &autocert.Manager{}}, field: "AutoCertManager"},
@@ -132,7 +132,7 @@ func TestStartServerOnAddressRefusesTLSFields(t *testing.T) {
 
 			select {
 			case message := <-recovered:
-				assert.Contains(t, message, "TLS is configured by the platform", "StartServerOnAddress(%+v)", tt.config)
+				assert.Contains(t, message, "TLS is configured by utils.GetTlsConfig()", "StartServerOnAddress(%+v)", tt.config)
 				assert.Contains(t, message, tt.field, "StartServerOnAddress(%+v)", tt.config)
 			case <-time.After(5 * time.Second):
 				t.Errorf("StartServerOnAddress(%+v) started the server instead of panicking", tt.config)

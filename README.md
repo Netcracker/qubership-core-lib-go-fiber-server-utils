@@ -489,9 +489,9 @@ Version 3 of this library is built on Fiber v3, and its public API exposes Fiber
    The second argument of `server.StartServer` names the property that holds the listen address. `server.StartServer`
    and `server.StartServerOnAddress` take an optional `fiber.ListenConfig`; without it the server listens on IPv4 only.
    A service that set `Network: fiber.NetworkTCP` passes `ListenerNetwork: fiber.NetworkTCP` there to keep IPv6.
-   TLS stays configured by the platform: both functions panic at startup if `fiber.ListenConfig` sets `CertFile`,
-   `CertKeyFile`, `CertClientFile`, `TLSConfig`, `TLSConfigFunc`, or `AutoCertManager`, or sets `TLSMinVersion` to a
-   version other than TLS 1.2.
+   The server takes its TLS settings only from `utils.GetTlsConfig()` of `qubership-core-lib-go`: both functions panic
+   at startup if `fiber.ListenConfig` sets `CertFile`, `CertKeyFile`, `CertClientFile`, `TLSConfig`, `TLSConfigFunc`,
+   or `AutoCertManager`, or sets `TLSMinVersion` to a version other than TLS 1.2.
 
 3. Pass `c.Context()`, never `c`, where a `context.Context` is expected. `c` compiles there too, but the request data
    such as `request_id` is lost (see [How to obtain context object](#how-to-obtain-context-object)).
