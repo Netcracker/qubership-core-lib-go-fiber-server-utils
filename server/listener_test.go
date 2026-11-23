@@ -24,6 +24,7 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 func TestServerListenerNetwork(t *testing.T) {
@@ -54,6 +55,7 @@ func TestServerListenerNetwork(t *testing.T) {
 		{name: "TLS tcp accepts IPv4", tls: true, config: listenConfig("tcp"), dialHost: "127.0.0.1", wantReachable: true},
 		{name: "TLS tcp accepts IPv6", tls: true, config: listenConfig("tcp"), dialHost: "::1", wantReachable: true},
 		{name: "TLS StartServer passes tcp on and accepts IPv6", tls: true, viaStartServer: true, config: listenConfig("tcp"), dialHost: "::1", wantReachable: true},
+		{name: "TLS with TLSMinVersion 1.2 starts", tls: true, config: []fiber.ListenConfig{{TLSMinVersion: tls.VersionTLS12, DisableStartupMessage: true}}, dialHost: "127.0.0.1", wantReachable: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -94,6 +96,55 @@ func TestServerListenerNetwork(t *testing.T) {
 			assert.Equal(t, tt.wantReachable, err == nil, "GET %s: body %q, error %v", target, body, err)
 		})
 	}
+}
+
+// StartServerOnAddress refuses every TLS field of fiber.ListenConfig. With platform TLS, Fiber used to ignore such a
+// field, so a caller that asked for client certificates through CertClientFile got a server that accepted clients
+// without one.
+func TestStartServerOnAddressRefusesTLSFields(t *testing.T) {
+	tests := []struct {
+		name   string
+		tls    bool
+		config fiber.ListenConfig
+		field  string
+	}{
+		{name: "CertFile", config: fiber.ListenConfig{CertFile: "server.crt"}, field: "CertFile"},
+		{name: "CertKeyFile", config: fiber.ListenConfig{CertKeyFile: "server.key"}, field: "CertKeyFile"},
+		{name: "CertClientFile", config: fiber.ListenConfig{CertClientFile: "ca.crt"}, field: "CertClientFile"},
+		{name: "CertClientFile with platform TLS", tls: true, config: fiber.ListenConfig{CertClientFile: "ca.crt"}, field: "CertClientFile"},
+		{name: "TLSConfig", config: fiber.ListenConfig{TLSConfig: &tls.Config{ClientAuth: tls.RequireAndVerifyClientCert}}, field: "TLSConfig"},
+		{name: "TLSConfigFunc", config: fiber.ListenConfig{TLSConfigFunc: func(*tls.Config) {}}, field: "TLSConfigFunc"},
+		{name: "AutoCertManager", config: fiber.ListenConfig{AutoCertManager: &autocert.Manager{}}, field: "AutoCertManager"},
+		{name: "TLSMinVersion 1.3", config: fiber.ListenConfig{TLSMinVersion: tls.VersionTLS13}, field: "TLSMinVersion"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.tls {
+				enableTLS(t)
+			}
+			app := fiber.New()
+			t.Cleanup(func() { _ = app.Shutdown() })
+
+			recovered := make(chan string, 1)
+			go func() {
+				recovered <- fmt.Sprint(panicValue(func() { StartServerOnAddress(app, "127.0.0.1:0", tt.config) }))
+			}()
+
+			select {
+			case message := <-recovered:
+				assert.Contains(t, message, "TLS is configured by the platform", "StartServerOnAddress(%+v)", tt.config)
+				assert.Contains(t, message, tt.field, "StartServerOnAddress(%+v)", tt.config)
+			case <-time.After(5 * time.Second):
+				t.Errorf("StartServerOnAddress(%+v) started the server instead of panicking", tt.config)
+			}
+		})
+	}
+}
+
+func panicValue(f func()) (recovered any) {
+	defer func() { recovered = recover() }()
+	f()
+	return nil
 }
 
 func get(client *http.Client, url string) (string, error) {

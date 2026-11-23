@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/tls"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
@@ -20,7 +21,19 @@ func StartServer(app *fiber.App, listenAddressKey string, config ...fiber.Listen
 	StartServerOnAddress(app, listenAddress, config...)
 }
 
+// StartServerOnAddress serves app on listenAddress and blocks until the server stops. When the platform enables TLS,
+// the server uses the certificates and the client certificate policy of the platform's TLS configuration.
+//
+// config passes listener options such as ListenerNetwork to Fiber. TLS is configured by the platform alone, so
+// StartServerOnAddress panics if config sets CertFile, CertKeyFile, CertClientFile, TLSConfig, TLSConfigFunc,
+// AutoCertManager, or sets TLSMinVersion to a version other than TLS 1.2. It also panics if the server cannot start.
 func StartServerOnAddress(app *fiber.App, listenAddress string, config ...fiber.ListenConfig) {
+	if len(config) > 0 {
+		if fields := tlsFields(config[0]); len(fields) > 0 {
+			logger.Panic("Cannot start server on address=%s: TLS is configured by the platform, remove %s from fiber.ListenConfig",
+				listenAddress, strings.Join(fields, ", "))
+		}
+	}
 	if utils.IsTlsEnabled() {
 		// tcp4 is also the default of fiber.ListenConfig.ListenerNetwork, so the TLS and plain listeners bind the same network.
 		network := fiber.NetworkTCP4
@@ -39,4 +52,31 @@ func StartServerOnAddress(app *fiber.App, listenAddress string, config ...fiber.
 			logger.Panic("Cannot start listener on address=%s, error=%+v", listenAddress, err)
 		}
 	}
+}
+
+func tlsFields(config fiber.ListenConfig) []string {
+	var fields []string
+	if config.CertFile != "" {
+		fields = append(fields, "CertFile")
+	}
+	if config.CertKeyFile != "" {
+		fields = append(fields, "CertKeyFile")
+	}
+	if config.CertClientFile != "" {
+		fields = append(fields, "CertClientFile")
+	}
+	if config.TLSConfig != nil {
+		fields = append(fields, "TLSConfig")
+	}
+	if config.TLSConfigFunc != nil {
+		fields = append(fields, "TLSConfigFunc")
+	}
+	if config.AutoCertManager != nil {
+		fields = append(fields, "AutoCertManager")
+	}
+	// Zero and TLS 1.2 both leave the minimum version of the platform's TLS configuration in effect.
+	if config.TLSMinVersion != 0 && config.TLSMinVersion != tls.VersionTLS12 {
+		fields = append(fields, "TLSMinVersion")
+	}
+	return fields
 }
